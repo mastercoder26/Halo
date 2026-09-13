@@ -49,6 +49,9 @@ const haloAPI: HaloAPI = {
     getAutoLaunch: () => invoke<boolean>("halo:getAutoLaunch"),
     setAutoLaunch: (enabled) => invoke<boolean>("halo:setAutoLaunch", enabled),
   },
+  onboarding: {
+    complete: () => invoke<HaloSettings>("halo:completeOnboarding"),
+  },
   overlay: {
     getState: () => invoke<ActiveOverlayState | null>("halo:getOverlayState"),
     onState: onOverlayState,

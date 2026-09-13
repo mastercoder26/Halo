@@ -55,6 +55,9 @@ export interface HaloAPI {
     getAutoLaunch(): Promise<boolean>;
     setAutoLaunch(enabled: boolean): Promise<boolean>;
   };
+  onboarding: {
+    complete(): Promise<HaloSettings>;
+  };
   overlay: {
     getState(): Promise<ActiveOverlayState | null>;
     onState(listener: (state: ActiveOverlayState | null) => void): () => void;
