@@ -5,6 +5,7 @@ import type {
   ControlSnapshot,
   DisplayZoneSettings,
   HaloSettings,
+  NowPlayingSnapshot,
   ZoneRole,
 } from "../../main/types.ts";
 
@@ -13,6 +14,7 @@ export type {
   ControlSnapshot,
   DisplayZoneSettings,
   HaloSettings,
+  NowPlayingSnapshot,
   ZoneRole,
 };
 
@@ -57,6 +59,11 @@ export interface HaloAPI {
   };
   onboarding: {
     complete(): Promise<HaloSettings>;
+  };
+  media: {
+    getNowPlaying(): Promise<NowPlayingSnapshot>;
+    setPlaying(playing: boolean): Promise<NowPlayingSnapshot>;
+    seek(fraction: number): Promise<NowPlayingSnapshot>;
   };
   overlay: {
     getState(): Promise<ActiveOverlayState | null>;
