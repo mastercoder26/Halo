@@ -5,6 +5,7 @@ import { defaultSettings } from "../types.js";
 import { edgeWatcher } from "./edge-watcher.js";
 import { settingsStore } from "./settings-store.js";
 import { openOnboardingWindow } from "../windows/onboarding-window.js";
+import { openMediaWindow } from "../windows/media-window.js";
 import { openSettingsWindow } from "../windows/settings-window.js";
 
 let tray: Tray | null = null;
@@ -39,6 +40,7 @@ function rebuildMenu(): void {
         click: () => openSettingsFromTray(),
       },
       { label: "Show Setup…", click: () => void openOnboardingWindow() },
+      { label: "Now Playing…", click: () => void openMediaWindow() },
       {
         label: "Reset Hot Zones",
         click: () => {

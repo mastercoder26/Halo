@@ -5,6 +5,7 @@ import {
   updateActiveControlValue,
 } from "../services/overlay-manager.js";
 import { settingsStore } from "../services/settings-store.js";
+import { getNowPlaying, seekMusic, setMusicPlaying } from "../services/now-playing.js";
 import {
   getControlSnapshot,
   isAccessibilityTrusted,
@@ -68,6 +69,17 @@ export function registerHandlers(): void {
     const settings = await settingsStore.update({ onboardingCompleted: true });
     closeOnboardingWindow();
     return settings;
+  });
+  ipcMain.handle("halo:getNowPlaying", () => getNowPlaying());
+  ipcMain.handle("halo:setMusicPlaying", (_event, playing: unknown) => {
+    if (typeof playing !== "boolean") throw new Error("Invalid playback state");
+    return setMusicPlaying(playing);
+  });
+  ipcMain.handle("halo:seekMusic", (_event, fraction: unknown) => {
+    if (typeof fraction !== "number" || !Number.isFinite(fraction)) {
+      throw new Error("Invalid media position");
+    }
+    return seekMusic(fraction);
   });
 
   ipcMain.handle("halo:getDisplays", async () => {
