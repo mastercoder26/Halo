@@ -7,7 +7,8 @@ export type ZoneRole =
   | "appearance"
   | "keyboard-backlight"
   | "mute"
-  | "keep-awake";
+  | "keep-awake"
+  | "now-playing";
 
 export type CornerId = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 export type EdgeId = "left" | "right" | "top" | "bottom";
@@ -79,6 +80,7 @@ export const ALL_ZONE_ROLES: ZoneRole[] = [
   "keyboard-backlight",
   "mute",
   "keep-awake",
+  "now-playing",
 ];
 
 export function defaultDisplayZones(): DisplayZoneSettings {
@@ -133,6 +135,8 @@ export function roleLabel(role: ZoneRole): string {
       return "Mute";
     case "keep-awake":
       return "Keep Awake";
+    case "now-playing":
+      return "Now Playing";
     default:
       return "Off";
   }

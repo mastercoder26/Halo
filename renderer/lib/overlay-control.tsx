@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { Coffee, Keyboard, Moon, Sun, Volume2, VolumeX } from "lucide-react";
+import { Coffee, Keyboard, Moon, Pause, Play, Sun, Volume2, VolumeX } from "lucide-react";
 
 import type { ActiveOverlayState, ControlRole } from "../platform/bridge";
 import { accentForRole, glowForRole } from "../role-visuals";
@@ -15,6 +15,7 @@ const CORE_ROLES = new Set<CoreOverlayRole>([
   "keyboard-backlight",
   "mute",
   "keep-awake",
+  "now-playing",
 ]);
 
 function isCoreOverlayState(value: unknown): value is OverlayState {
@@ -29,13 +30,14 @@ function isCoreOverlayState(value: unknown): value is OverlayState {
 }
 
 function isToggle(role: CoreOverlayRole): boolean {
-  return role === "appearance" || role === "mute" || role === "keep-awake";
+  return role === "appearance" || role === "mute" || role === "keep-awake" || role === "now-playing";
 }
 
 function readout(role: CoreOverlayRole, value: number): string {
   if (role === "appearance") return value >= 50 ? "Dark" : "Light";
   if (role === "mute") return value >= 50 ? "Muted" : "Unmuted";
   if (role === "keep-awake") return value >= 50 ? "On" : "Off";
+  if (role === "now-playing") return value >= 50 ? "Playing" : "Paused";
   return `${Math.round(value)}%`;
 }
 
@@ -46,6 +48,7 @@ function RoleIcon({ role, active }: { role: CoreOverlayRole; active: boolean }) 
   if (role === "appearance") return active ? <Moon className={className} /> : <Sun className={className} />;
   if (role === "mute") return active ? <VolumeX className={className} /> : <Volume2 className={className} />;
   if (role === "keep-awake") return active ? <Coffee className={className} /> : <Moon className={className} />;
+  if (role === "now-playing") return active ? <Pause className={className} /> : <Play className={className} />;
   return <Volume2 className={className} />;
 }
 
