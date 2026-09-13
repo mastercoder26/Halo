@@ -4,6 +4,8 @@ Halo is a standalone Electron macOS utility for simple cursor-edge system contro
 
 On first launch, Halo walks through Accessibility access and its default corner controls. You can rerun setup from the app menu or menu bar at any time.
 
+Use **Now Playing** from the app or menu bar to control playback in Apple Music. You can also assign **Now playing** to any hot zone for quick play/pause.
+
 ## Requirements
 
 - macOS

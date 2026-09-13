@@ -84,7 +84,7 @@
       ],
       "extendInfo": {
         "LSUIElement": true,
-        "NSAppleEventsUsageDescription": "Halo uses Apple Events to adjust selected system controls from your cursor.",
+        "NSAppleEventsUsageDescription": "Halo uses Apple Events to control playback in Music and adjust selected system controls from your cursor.",
         "NSAccessibilityUsageDescription": "Halo needs Accessibility access to change appearance and keyboard-backlight controls."
       }
     },

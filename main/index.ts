@@ -10,6 +10,7 @@ import { destroyTray, setupTray } from "./services/tray.js";
 import { destroyAllDials } from "./windows/dial-overlay.js";
 import { destroyAllEdgeControls } from "./windows/edge-control-overlay.js";
 import { openOnboardingWindow } from "./windows/onboarding-window.js";
+import { closeMediaWindow, openMediaWindow } from "./windows/media-window.js";
 import { openSettingsWindow } from "./windows/settings-window.js";
 
 registerHandlers();
@@ -28,6 +29,7 @@ function setupApplicationMenu(): void {
             click: () => void openSettingsWindow(),
           },
           { label: "Show Setup…", click: () => void openOnboardingWindow() },
+          { label: "Now Playing…", click: () => void openMediaWindow() },
           { type: "separator" },
           { role: "hide" },
           { role: "hideOthers" },
@@ -70,6 +72,7 @@ app.on("before-quit", () => {
   destroyTray();
   destroyAllDials();
   destroyAllEdgeControls();
+  closeMediaWindow();
 });
 
 app.whenReady().then(async () => {
