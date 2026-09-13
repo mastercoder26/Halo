@@ -9,6 +9,7 @@ import { settingsStore } from "./services/settings-store.js";
 import { destroyTray, setupTray } from "./services/tray.js";
 import { destroyAllDials } from "./windows/dial-overlay.js";
 import { destroyAllEdgeControls } from "./windows/edge-control-overlay.js";
+import { openOnboardingWindow } from "./windows/onboarding-window.js";
 import { openSettingsWindow } from "./windows/settings-window.js";
 
 registerHandlers();
@@ -26,6 +27,7 @@ function setupApplicationMenu(): void {
             accelerator: "Command+,",
             click: () => void openSettingsWindow(),
           },
+          { label: "Show Setup…", click: () => void openOnboardingWindow() },
           { type: "separator" },
           { role: "hide" },
           { role: "hideOthers" },
@@ -40,6 +42,15 @@ function setupApplicationMenu(): void {
   );
 }
 
+async function openPrimaryWindow(): Promise<void> {
+  const settings = await settingsStore.load();
+  if (!settings.onboardingCompleted) {
+    await openOnboardingWindow();
+    return;
+  }
+  await openSettingsWindow();
+}
+
 app.on("window-all-closed", () => {
   // Halo remains available through the menu bar.
 });
@@ -50,7 +61,7 @@ app.on("activate", () => {
   } catch {
     // The accessory app has no Dock presence.
   }
-  void openSettingsWindow();
+  void openPrimaryWindow();
 });
 
 app.on("before-quit", () => {
@@ -73,6 +84,7 @@ app.whenReady().then(async () => {
   setupApplicationMenu();
   await setupTray();
   startOverlayManager();
+  await openPrimaryWindow();
 
   screen.on("display-added", () => edgeWatcher.invalidateDisplayCache());
   screen.on("display-removed", () => edgeWatcher.invalidateDisplayCache());

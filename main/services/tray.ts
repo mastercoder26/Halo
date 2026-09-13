@@ -4,6 +4,7 @@ import type { Rectangle } from "../platform/electron.js";
 import { defaultSettings } from "../types.js";
 import { edgeWatcher } from "./edge-watcher.js";
 import { settingsStore } from "./settings-store.js";
+import { openOnboardingWindow } from "../windows/onboarding-window.js";
 import { openSettingsWindow } from "../windows/settings-window.js";
 
 let tray: Tray | null = null;
@@ -37,6 +38,7 @@ function rebuildMenu(): void {
         accelerator: "Command+,",
         click: () => openSettingsFromTray(),
       },
+      { label: "Show Setup…", click: () => void openOnboardingWindow() },
       {
         label: "Reset Hot Zones",
         click: () => {
