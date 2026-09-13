@@ -12,6 +12,7 @@ import {
   setValueForRole,
 } from "../services/system-controls.js";
 import { getSettingsWindow } from "../windows/settings-window.js";
+import { closeOnboardingWindow } from "../windows/onboarding-window.js";
 import {
   ALL_ZONE_ROLES,
   CORNER_IDS,
@@ -62,6 +63,11 @@ export function registerHandlers(): void {
   ipcMain.handle("halo:setAutoLaunch", (_event, openAtLogin: boolean) => {
     app.setLoginItemSettings({ openAtLogin: Boolean(openAtLogin) });
     return app.getLoginItemSettings().openAtLogin;
+  });
+  ipcMain.handle("halo:completeOnboarding", async () => {
+    const settings = await settingsStore.update({ onboardingCompleted: true });
+    closeOnboardingWindow();
+    return settings;
   });
 
   ipcMain.handle("halo:getDisplays", async () => {

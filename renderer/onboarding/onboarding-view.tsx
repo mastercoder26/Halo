@@ -23,8 +23,26 @@ const STEPS = [
 
 export function OnboardingView() {
   const [stepIndex, setStepIndex] = useState(0);
+  const [status, setStatus] = useState<string | null>(null);
   const step = STEPS[stepIndex];
   const isLastStep = stepIndex === STEPS.length - 1;
+
+  const finishSetup = async () => {
+    try {
+      await window.haloAPI.onboarding.complete();
+    } catch {
+      setStatus("Couldn’t finish setup. Please try again.");
+    }
+  };
+
+  const openAccessibilitySettings = async () => {
+    try {
+      await window.haloAPI.accessibility.openSettings();
+      setStatus("Enable Halo in Privacy & Security → Accessibility, then return here.");
+    } catch {
+      setStatus("Couldn’t open Accessibility settings.");
+    }
+  };
 
   return (
     <main className="flex h-screen flex-col bg-[#171719] p-8 text-primary">
@@ -43,6 +61,17 @@ export function OnboardingView() {
         <h1 className="mt-3 text-3xl font-semibold tracking-tight">{step.title}</h1>
         <p className="mt-4 max-w-md text-base leading-7 text-secondary">{step.description}</p>
         <p className="mt-3 max-w-md text-sm leading-6 text-secondary">{step.detail}</p>
+        {stepIndex === 1 ? (
+          <Button
+            className="mt-6 self-start"
+            size="small"
+            variant="muted"
+            onClick={() => void openAccessibilitySettings()}
+          >
+            Open Accessibility Settings
+          </Button>
+        ) : null}
+        {status ? <p className="mt-4 max-w-md text-sm text-secondary">{status}</p> : null}
       </section>
 
       <div className="flex items-center justify-between gap-3">
@@ -57,7 +86,13 @@ export function OnboardingView() {
         <Button
           size="small"
           variant="accent"
-          onClick={() => setStepIndex((current) => Math.min(STEPS.length - 1, current + 1))}
+          onClick={() => {
+            if (isLastStep) {
+              void finishSetup();
+              return;
+            }
+            setStepIndex((current) => Math.min(STEPS.length - 1, current + 1));
+          }}
         >
           {isLastStep ? "Finish setup" : "Continue"}
         </Button>
