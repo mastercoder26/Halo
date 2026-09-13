@@ -26,6 +26,8 @@ export interface DisplayZoneSettings {
 
 export interface HaloSettings {
   version: 1;
+  /** Whether the first-run setup has been completed. */
+  onboardingCompleted: boolean;
   displayMode: DisplayMode;
   /** Per-display overrides keyed by display.id string. Missing displays use defaults. */
   displays: Record<string, DisplayZoneSettings>;
@@ -92,6 +94,7 @@ export function defaultDisplayZones(): DisplayZoneSettings {
 export function defaultSettings(): HaloSettings {
   return {
     version: 1,
+    onboardingCompleted: false,
     displayMode: "all",
     displays: {},
     hotZoneSize: 10,
