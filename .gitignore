@@ -15,6 +15,7 @@ Thumbs.db
 # Compiled native helpers (built by npm run build:native)
 native/brightness
 native/modifier-state
+native/haptic
 
 # Editor tooling (not app source)
 .cursor/
