@@ -55,6 +55,14 @@ export interface ControlSnapshot {
   keyboardSupported: boolean;
 }
 
+export interface NowPlayingSnapshot {
+  title: string;
+  artist: string;
+  durationSeconds: number;
+  positionSeconds: number;
+  playing: boolean;
+}
+
 export interface ActiveOverlayState {
   zone: ZoneId;
   role: ZoneRole;
