@@ -41,6 +41,7 @@ const ROLE_OPTIONS: Array<{ value: ZoneRole; label: string }> = [
   { value: "keyboard-backlight", label: "Keyboard backlight" },
   { value: "mute", label: "Mute" },
   { value: "keep-awake", label: "Keep awake" },
+  { value: "now-playing", label: "Now playing" },
 ];
 
 function messageForError(error: unknown): string {

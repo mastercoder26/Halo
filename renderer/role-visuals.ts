@@ -4,7 +4,8 @@ export type HaloRole =
   | "appearance"
   | "keyboard-backlight"
   | "mute"
-  | "keep-awake";
+  | "keep-awake"
+  | "now-playing";
 
 const ROLE_COLORS: Record<HaloRole, { accent: string; glow: string }> = {
   volume: { accent: "#22D3EE", glow: "rgba(34,211,238,0.45)" },
@@ -13,6 +14,7 @@ const ROLE_COLORS: Record<HaloRole, { accent: string; glow: string }> = {
   "keyboard-backlight": { accent: "#2DD4BF", glow: "rgba(45,212,191,0.45)" },
   mute: { accent: "#FB7185", glow: "rgba(251,113,133,0.45)" },
   "keep-awake": { accent: "#34D399", glow: "rgba(52,211,153,0.45)" },
+  "now-playing": { accent: "#60A5FA", glow: "rgba(96,165,250,0.45)" },
 };
 
 export function accentForRole(role: HaloRole): string {

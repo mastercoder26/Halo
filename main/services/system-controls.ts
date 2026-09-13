@@ -6,6 +6,7 @@ import { logger, powerSaveBlocker, systemPreferences } from "../platform/electro
 import type { ControlSnapshot, ZoneRole } from "../types.js";
 import { resolveNativeHelper } from "./native-helper.js";
 import { parseKeyboardBacklight } from "./keyboard-backlight.js";
+import { getNowPlaying, setMusicPlaying } from "./now-playing.js";
 import { ControlValueCache, writeThenCommit } from "./control-value-cache.js";
 import {
   dialValueToKeepAwake,
@@ -268,6 +269,8 @@ export async function getValueForRole(role: ZoneRole, displayId?: number): Promi
       return mutedToDialValue(await getMuted());
     case "keep-awake":
       return keepAwakeToDialValue(getKeepAwake());
+    case "now-playing":
+      return (await getNowPlaying()).playing ? 100 : 0;
     default:
       return 0;
   }
@@ -299,6 +302,8 @@ export async function setValueForRole(
       const active = dialValueToKeepAwake(value);
       return keepAwakeToDialValue(setKeepAwake(active));
     }
+    case "now-playing":
+      return (await setMusicPlaying(value >= 50)).playing ? 100 : 0;
     default:
       return 0;
   }
