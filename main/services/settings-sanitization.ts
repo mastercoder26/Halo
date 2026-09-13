@@ -95,6 +95,10 @@ function sanitizeSettingsWithFallback(raw: unknown, fallback: HaloSettings): Hal
   const source = isRecord(raw) ? raw : {};
   return {
     version: 1,
+    onboardingCompleted:
+      typeof source.onboardingCompleted === "boolean"
+        ? source.onboardingCompleted
+        : fallback.onboardingCompleted,
     displayMode:
       source.displayMode === "all" || source.displayMode === "cursor-display"
         ? source.displayMode

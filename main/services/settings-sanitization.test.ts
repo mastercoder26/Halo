@@ -62,3 +62,8 @@ test("keeps a valid core setting when an update patch has an invalid container",
   assert.deepEqual(next.insets, { menuBar: 40, dock: 24, notch: 6 });
   assert.deepEqual(next.displays, current.displays);
 });
+
+test("persists the onboarding completion state", () => {
+  assert.equal(sanitizeSettings({ onboardingCompleted: true }).onboardingCompleted, true);
+  assert.equal(sanitizeSettings({ onboardingCompleted: "yes" }).onboardingCompleted, false);
+});
