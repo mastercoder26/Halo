@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build and packaged app output
+dist/
+release/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Compiled native helpers (built by npm run build:native)
+native/brightness
+native/modifier-state
+
+# Editor tooling (not app source)
+.cursor/
+
+# Local Claude Code agent tooling (not app source; contains local paths/PII)
+.claude/.cc-writes/
