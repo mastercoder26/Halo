@@ -10,6 +10,7 @@ import type {
   DisplayZoneSettings,
   HaloAPI,
   HaloSettings,
+  NowPlayingSnapshot,
 } from "./platform/bridge";
 
 function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
@@ -51,6 +52,11 @@ const haloAPI: HaloAPI = {
   },
   onboarding: {
     complete: () => invoke<HaloSettings>("halo:completeOnboarding"),
+  },
+  media: {
+    getNowPlaying: () => invoke<NowPlayingSnapshot>("halo:getNowPlaying"),
+    setPlaying: (playing) => invoke<NowPlayingSnapshot>("halo:setMusicPlaying", playing),
+    seek: (fraction) => invoke<NowPlayingSnapshot>("halo:seekMusic", fraction),
   },
   overlay: {
     getState: () => invoke<ActiveOverlayState | null>("halo:getOverlayState"),

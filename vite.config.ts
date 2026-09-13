@@ -10,6 +10,7 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const windowEntries = [
   "dial-window.html",
   "edge-window.html",
+  "media-window.html",
   "onboarding-window.html",
   "settings-window.html",
 ];
