@@ -2,6 +2,8 @@
 
 Halo is a standalone Electron macOS utility for simple cursor-edge system controls.
 
+On first launch, Halo walks through Accessibility access and its default corner controls. You can rerun setup from the app menu or menu bar at any time.
+
 ## Requirements
 
 - macOS
