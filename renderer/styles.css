@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --theme-accent: #fbbf24;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #171719;
+}
+
+html.no-background,
+html.no-background body,
+html.no-background #root {
+  background: transparent;
+}
+
+.drag-region {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.no-drag,
+button,
+input,
+select {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+button:not(:disabled),
+input:not(:disabled),
+select:not(:disabled) {
+  cursor: pointer;
+}
