@@ -1,6 +1,5 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-
 import { initLogging } from "../lib/utils";
 import { OnboardingView } from "./onboarding-view";
 import "../styles.css";
@@ -16,4 +15,6 @@ ReactDOM.createRoot(rootElement).render(
   </React.StrictMode>,
 );
 
-if (import.meta.hot) import.meta.hot.accept();
+if (import.meta.hot) {
+  import.meta.hot.accept();
+}
