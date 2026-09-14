@@ -1,5 +1,7 @@
 # Halo
 <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/2f8704f5-7b72-459d-9c0b-0c5804babd70" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/3cd0ce59-d2b2-4c79-be3c-8d48aea0e3eb" />
+
 
 Halo is a standalone macOS menu-bar utility that turns screen corners and edges into polished system controls.
 
