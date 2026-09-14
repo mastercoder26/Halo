@@ -40,6 +40,7 @@ export async function openSettingsWindow(anchor?: Point): Promise<void> {
   }
 
   settingsWindow = new BrowserWindow({
+    windowKey: "settings",
     ...(bounds ?? {
       width: SETTINGS_WINDOW_WIDTH,
       height: SETTINGS_WINDOW_HEIGHT,
@@ -51,6 +52,7 @@ export async function openSettingsWindow(anchor?: Point): Promise<void> {
     show: false,
     vibrancy: "sidebar",
     titleBarStyle: "hidden",
+    toolbarStyle: "unified",
     backgroundColor: "#00000000",
     webPreferences: {
       preload: getPreloadPath(),

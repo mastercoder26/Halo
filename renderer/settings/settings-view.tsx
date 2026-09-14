@@ -1,97 +1,148 @@
-import { useCallback, useEffect, useState } from "react";
-
-import appIcon from "../../app-icon.png";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { getFileIconUrl } from "../lib/file-icon";
 import {
+  Badge,
   Button,
   Callout,
   Field,
-  FieldGroup,
   FieldSet,
+  Input,
+  ScrollArea,
   SegmentedControl,
   SegmentedControlItem,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Tabs,
+  TabsContent,
+  TabsRoot,
+  TabsTrigger,
+  Text,
+  toast,
 } from "../lib/components";
-import type {
-  ControlSnapshot,
-  DisplayInfo,
-  DisplayZoneSettings,
-  HaloSettings,
-  ZoneRole,
-} from "../platform/bridge";
-import type { CornerId, EdgeId, ZoneId } from "../../main/types.ts";
+import appIcon from "../../app-icon.png";
+import { parseBoundedInteger } from "./focus-timer-draft";
 
-const CORNERS: Array<{ id: CornerId; label: string }> = [
+type ZoneRole =
+  | "off"
+  | "volume"
+  | "brightness"
+  | "appearance"
+  | "dock"
+  | "keyboard-backlight"
+  | "mute"
+  | "keep-awake"
+  | "now-playing"
+  | "focus-timer";
+
+type CornerId = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+type EdgeId = "left" | "right" | "top" | "bottom";
+type ZoneId = CornerId | EdgeId;
+
+interface DisplayZoneSettings {
+  enabled: boolean;
+  corners: Record<CornerId, ZoneRole>;
+  edges: Record<EdgeId, ZoneRole>;
+}
+
+interface DisplayInfo {
+  id: number;
+  label: string;
+  primary: boolean;
+  internal: boolean;
+  zones: DisplayZoneSettings;
+}
+
+interface FocusTimerSettings {
+  focusMinutes: number;
+  shortBreakMinutes: number;
+  longBreakMinutes: number;
+  cyclesBeforeLongBreak: number;
+}
+
+interface HaloSettings {
+  displayMode: "all" | "cursor-display";
+  dockApps: string[];
+  feedback: { haptics: boolean; sound: boolean };
+  hotZoneSize: number;
+  insets: { menuBar: number; dock: number; notch: number };
+  hasCompletedOnboarding?: boolean;
+  focusTimer: FocusTimerSettings;
+}
+
+interface DockAppInfo {
+  path: string;
+  name: string;
+}
+
+interface ControlSnapshot {
+  volume: number;
+  brightness: number;
+  appearance: "light" | "dark";
+  keyboardBacklight: number;
+  muted: boolean;
+  keepAwake: boolean;
+  accessibilityTrusted: boolean;
+  brightnessSupported: boolean;
+  keyboardSupported: boolean;
+}
+
+const ROLE_OPTIONS: { value: ZoneRole; label: string }[] = [
+  { value: "off", label: "Off" },
+  { value: "volume", label: "Volume" },
+  { value: "brightness", label: "Brightness" },
+  { value: "appearance", label: "Appearance" },
+  { value: "mute", label: "Mute" },
+  { value: "keep-awake", label: "Keep Awake" },
+  { value: "now-playing", label: "Now Playing" },
+  { value: "dock", label: "Dock" },
+  { value: "keyboard-backlight", label: "Keyboard" },
+  { value: "focus-timer", label: "Focus Timer" },
+];
+
+const ROLE_LABEL: Record<ZoneRole, string> = Object.fromEntries(
+  ROLE_OPTIONS.map((option) => [option.value, option.label]),
+) as Record<ZoneRole, string>;
+
+const CORNERS: { id: CornerId; label: string }[] = [
   { id: "top-left", label: "Top left" },
   { id: "top-right", label: "Top right" },
   { id: "bottom-left", label: "Bottom left" },
   { id: "bottom-right", label: "Bottom right" },
 ];
 
-const EDGES: Array<{ id: EdgeId; label: string }> = [
-  { id: "top", label: "Top edge" },
-  { id: "bottom", label: "Bottom edge" },
+const EDGES: { id: EdgeId; label: string }[] = [
   { id: "left", label: "Left edge" },
   { id: "right", label: "Right edge" },
+  { id: "top", label: "Top edge" },
+  { id: "bottom", label: "Bottom edge" },
 ];
 
-const ROLE_OPTIONS: Array<{ value: ZoneRole; label: string }> = [
-  { value: "off", label: "Off" },
-  { value: "volume", label: "Volume" },
-  { value: "brightness", label: "Brightness" },
-  { value: "appearance", label: "Appearance" },
-  { value: "keyboard-backlight", label: "Keyboard backlight" },
-  { value: "mute", label: "Mute" },
-  { value: "keep-awake", label: "Keep awake" },
-  { value: "now-playing", label: "Now playing" },
-];
+const APP_PICKER_ID = "quick-dock-app-picker";
 
-function messageForError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function ZoneRoleSelect({
-  value,
-  controls,
-  onChange,
-}: {
-  value: ZoneRole;
-  controls: ControlSnapshot | null;
-  onChange: (role: ZoneRole) => void;
-}) {
-  return (
-    <select
-      className="rounded-md border border-white/10 bg-black/20 px-2 py-1.5 text-sm text-primary outline-none focus:border-[var(--theme-accent)]"
-      value={value}
-      onChange={(event) => onChange(event.currentTarget.value as ZoneRole)}
-    >
-      {ROLE_OPTIONS.map((option) => {
-        const unavailable = Boolean(
-          (option.value === "brightness" && controls && !controls.brightnessSupported) ||
-          (option.value === "keyboard-backlight" && controls && !controls.keyboardSupported),
-        );
-        return (
-          <option key={option.value} value={option.value} disabled={unavailable}>
-            {option.label}{unavailable ? " (unavailable)" : ""}
-          </option>
-        );
-      })}
-    </select>
-  );
+function SettingsEyebrow({ children }: { children: string }) {
+  return <p className="halo-settings-eyebrow text-secondary mb-2">{children}</p>;
 }
 
 function OnOffControl({
   checked,
-  label,
-  onChange,
+  onCheckedChange,
+  ariaLabel,
 }: {
   checked: boolean;
-  label: string;
-  onChange: (next: boolean) => void;
+  onCheckedChange: (next: boolean) => void;
+  ariaLabel: string;
 }) {
   return (
     <SegmentedControl
+      size="small"
       value={checked ? "on" : "off"}
-      onValueChange={(value) => onChange(value === "on")}
-      aria-label={label}
+      onValueChange={(value) => {
+        if (value === "on" || value === "off") onCheckedChange(value === "on");
+      }}
+      aria-label={ariaLabel}
     >
       <SegmentedControlItem value="on">On</SegmentedControlItem>
       <SegmentedControlItem value="off">Off</SegmentedControlItem>
@@ -99,268 +150,973 @@ function OnOffControl({
   );
 }
 
+function FocusTimerNumberInput({
+  value,
+  minimum,
+  maximum,
+  onCommit,
+}: {
+  value: number;
+  minimum: number;
+  maximum: number;
+  onCommit: (next: number) => void;
+}) {
+  const [draft, setDraft] = useState(() => String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  const commit = () => {
+    const next = parseBoundedInteger(draft, minimum, maximum);
+    if (next === null) {
+      setDraft(String(value));
+      return;
+    }
+    setDraft(String(next));
+    if (next !== value) onCommit(next);
+  };
+
+  return (
+    <Input
+      size="small"
+      type="number"
+      min={minimum}
+      max={maximum}
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        commit();
+      }}
+    />
+  );
+}
+
+const CORNER_MAP: { id: CornerId; chip: string; dataCorner: string }[] = [
+  { id: "top-left", chip: "TL", dataCorner: "tl" },
+  { id: "top-right", chip: "TR", dataCorner: "tr" },
+  { id: "bottom-left", chip: "BL", dataCorner: "bl" },
+  { id: "bottom-right", chip: "BR", dataCorner: "br" },
+];
+
+const EDGE_MAP: { id: EdgeId; label: string; dataEdge: string }[] = [
+  { id: "top", label: "Top edge", dataEdge: "top" },
+  { id: "bottom", label: "Bottom edge", dataEdge: "bottom" },
+  { id: "left", label: "Left", dataEdge: "left" },
+  { id: "right", label: "Right", dataEdge: "right" },
+];
+
+function zoneLabel(zone: ZoneId): string {
+  const corner = CORNERS.find((c) => c.id === zone);
+  if (corner) return corner.label;
+  return EDGES.find((e) => e.id === zone)?.label ?? zone;
+}
+
+function isCornerZone(zone: ZoneId): zone is CornerId {
+  return CORNERS.some((c) => c.id === zone);
+}
+
+function ZoneMap({
+  zones,
+  selected,
+  onSelect,
+}: {
+  zones: DisplayZoneSettings;
+  selected: ZoneId | null;
+  onSelect: (zone: ZoneId) => void;
+}) {
+  return (
+    <div className="halo-zone-map" role="group" aria-label="Hot zone map">
+      {EDGE_MAP.map((edge) => (
+        <button
+          key={edge.id}
+          type="button"
+          className="halo-zone-map-edge"
+          data-edge={edge.dataEdge}
+          data-selected={selected === edge.id ? "true" : undefined}
+          aria-pressed={selected === edge.id}
+          aria-label={`${edge.label}: ${ROLE_LABEL[zones.edges[edge.id]]}. Click to customize.`}
+          onClick={() => onSelect(edge.id)}
+        >
+          {edge.label}
+        </button>
+      ))}
+      <div className="halo-zone-map-screen">
+        {CORNER_MAP.map((corner) => (
+          <button
+            key={corner.id}
+            type="button"
+            className="halo-zone-map-corner"
+            data-corner={corner.dataCorner}
+            data-selected={selected === corner.id ? "true" : undefined}
+            aria-pressed={selected === corner.id}
+            aria-label={`${zoneLabel(corner.id)}: ${ROLE_LABEL[zones.corners[corner.id]]}. Click to customize.`}
+            title={ROLE_LABEL[zones.corners[corner.id]]}
+            onClick={() => onSelect(corner.id)}
+          >
+            {corner.chip}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RoleSelect({
+  value,
+  onChange,
+  ariaLabel,
+  keyboardSupported = false,
+  brightnessSupported = true,
+}: {
+  value: ZoneRole;
+  onChange: (role: ZoneRole) => void;
+  ariaLabel: string;
+  keyboardSupported?: boolean;
+  brightnessSupported?: boolean;
+}) {
+  const roleOptions = ROLE_OPTIONS.filter((option) => {
+    if (option.value === "keyboard-backlight" && !keyboardSupported) return false;
+    if (option.value === "brightness" && !brightnessSupported) return false;
+    return true;
+  });
+
+  return (
+    <Select value={value} onValueChange={(nextValue) => onChange(nextValue as ZoneRole)}>
+      <SelectTrigger
+        variant="transparent"
+        size="small"
+        className="min-w-[136px]"
+        aria-label={ariaLabel}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {value === "keyboard-backlight" && !keyboardSupported ? (
+          <SelectItem value="keyboard-backlight" disabled>
+            Keyboard (unavailable)
+          </SelectItem>
+        ) : null}
+        {value === "brightness" && !brightnessSupported ? (
+          <SelectItem value="brightness" disabled>
+            Brightness (unavailable)
+          </SelectItem>
+        ) : null}
+        {roleOptions.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export function SettingsView() {
   const [settings, setSettings] = useState<HaloSettings | null>(null);
   const [displays, setDisplays] = useState<DisplayInfo[]>([]);
   const [selectedDisplayId, setSelectedDisplayId] = useState<number | null>(null);
+  const [dockApps, setDockApps] = useState<DockAppInfo[]>([]);
   const [controls, setControls] = useState<ControlSnapshot | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [installedApps, setInstalledApps] = useState<DockAppInfo[]>([]);
+  const [appSearch, setAppSearch] = useState("");
+  const [focusedZone, setFocusedZone] = useState<ZoneId | null>("top-left");
+  const [settingsTab, setSettingsTab] = useState("general");
   const [autoLaunch, setAutoLaunch] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
 
-  const selectedDisplay =
-    displays.find((display) => display.id === selectedDisplayId) ?? displays[0] ?? null;
+  const selected = displays.find((d) => d.id === selectedDisplayId) ?? displays[0] ?? null;
+  const filteredInstalledApps = useMemo(() => {
+    const query = appSearch.trim().toLocaleLowerCase();
+    if (!query) return installedApps;
+    return installedApps.filter((app) => app.name.toLocaleLowerCase().includes(query));
+  }, [appSearch, installedApps]);
 
-  const loadSettings = useCallback(async () => {
+  const loadAll = useCallback(async () => {
     try {
-      const [nextSettings, nextDisplays, nextControls, nextAutoLaunch] = await Promise.all([
-        window.haloAPI.settings.get(),
-        window.haloAPI.displays.get(),
-        window.haloAPI.controls.get(),
-        window.haloAPI.app.getAutoLaunch(),
+      const [s, d, apps, c, launch] = await Promise.all([
+        window.haloAPI.ipc.invoke<HaloSettings>("halo:getSettings"),
+        window.haloAPI.ipc.invoke<DisplayInfo[]>("halo:getDisplays"),
+        window.haloAPI.ipc.invoke<DockAppInfo[]>("halo:getBaseDockApps"),
+        window.haloAPI.ipc.invoke<ControlSnapshot>("halo:getControls"),
+        window.haloAPI.ipc.invoke<boolean>("halo:getAutoLaunch").catch(() => false),
       ]);
-      setSettings(nextSettings);
-      setDisplays(nextDisplays);
-      setControls(nextControls);
-      setAutoLaunch(nextAutoLaunch);
-      setSelectedDisplayId((current) => current ?? nextDisplays[0]?.id ?? null);
+      setSettings(s);
+      setDisplays(d);
+      setDockApps(apps);
+      setControls(c);
+      setAutoLaunch(launch);
+      setSelectedDisplayId((current) => current ?? d[0]?.id ?? null);
     } catch (error) {
-      setStatus(`Could not load settings: ${messageForError(error)}`);
+      toast.error(`Failed to load settings: ${errorMessage(error)}`);
     }
   }, []);
 
   useEffect(() => {
-    void loadSettings();
-  }, [loadSettings]);
+    void loadAll();
+  }, [loadAll]);
 
   useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      event.preventDefault();
-      void window.haloAPI.window.closeSettings();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
+    const unsub = window.haloAPI.ipc.on("halo:settings-focus", (_event, payload) => {
+      const next = payload as { tab?: string; zone?: ZoneId; displayId?: number } | null;
+      if (!next || typeof next !== "object") return;
+      if (typeof next.tab === "string") setSettingsTab(next.tab);
+      if (typeof next.displayId === "number") setSelectedDisplayId(next.displayId);
+      if (
+        next.zone === "top-left" ||
+        next.zone === "top-right" ||
+        next.zone === "bottom-left" ||
+        next.zone === "bottom-right" ||
+        next.zone === "left" ||
+        next.zone === "right" ||
+        next.zone === "top" ||
+        next.zone === "bottom"
+      ) {
+        setFocusedZone(next.zone);
+      }
+    });
+    return unsub;
   }, []);
 
-  const updateSettings = async (patch: Partial<HaloSettings>) => {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (event.defaultPrevented) return;
+      const el = document.activeElement;
+      if (
+        el instanceof HTMLInputElement ||
+        el instanceof HTMLTextAreaElement ||
+        el instanceof HTMLSelectElement ||
+        (el instanceof HTMLElement && el.isContentEditable)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      void window.haloAPI.ipc.invoke("window:closeSettings");
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const patchSettings = async (patch: Partial<HaloSettings>) => {
     try {
-      const nextSettings = await window.haloAPI.settings.update(patch);
-      setSettings(nextSettings);
-      setStatus(null);
+      const next = await window.haloAPI.ipc.invoke<HaloSettings>(
+        "halo:updateSettings",
+        patch,
+      );
+      setSettings(next);
     } catch (error) {
-      setStatus(`Could not save settings: ${messageForError(error)}`);
+      toast.error(`Could not update settings: ${errorMessage(error)}`);
     }
   };
 
-  const updateZones = async (zones: DisplayZoneSettings) => {
-    if (!selectedDisplay) return;
+  const setLaunchAtLogin = async (openAtLogin: boolean) => {
+    setAutoLaunch(openAtLogin);
     try {
-      const saved = await window.haloAPI.displays.setZones(selectedDisplay.id, zones);
+      const applied = await window.haloAPI.ipc.invoke<boolean>(
+        "halo:setAutoLaunch",
+        openAtLogin,
+      );
+      setAutoLaunch(applied);
+    } catch (error) {
+      setAutoLaunch(!openAtLogin);
+      toast.error(`Could not update launch at login: ${errorMessage(error)}`);
+    }
+  };
+
+  const updateZones = async (
+    zones: DisplayZoneSettings,
+  ): Promise<DisplayZoneSettings | null> => {
+    if (!selected) return null;
+    try {
+      const savedZones = await window.haloAPI.ipc.invoke<DisplayZoneSettings>(
+        "halo:setDisplayZones",
+        selected.id,
+        zones,
+      );
       setDisplays((current) =>
         current.map((display) =>
-          display.id === selectedDisplay.id ? { ...display, zones: saved } : display,
+          display.id === selected.id ? { ...display, zones: savedZones } : display,
         ),
       );
-      setStatus(null);
+      return savedZones;
     } catch (error) {
-      setStatus(`Could not save hot zones: ${messageForError(error)}`);
+      toast.error(`Could not update hot zones: ${errorMessage(error)}`);
+      return null;
     }
   };
 
-  const updateZoneRole = (zone: ZoneId, role: ZoneRole) => {
-    if (!selectedDisplay) return;
-    if (CORNERS.some((corner) => corner.id === zone)) {
+  const openAppPicker = async () => {
+    if (pickerOpen) {
+      setPickerOpen(false);
+      return;
+    }
+    setPickerOpen(true);
+    if (installedApps.length === 0) {
+      setPickerLoading(true);
+      try {
+        const list =
+          await window.haloAPI.ipc.invoke<DockAppInfo[]>("halo:listInstalledApps");
+        setInstalledApps(list);
+      } catch (error) {
+        toast.error(`Could not list apps: ${errorMessage(error)}`);
+        setPickerOpen(false);
+      } finally {
+        setPickerLoading(false);
+      }
+    }
+  };
+
+  const addApp = async (appPath: string) => {
+    try {
+      await window.haloAPI.ipc.invoke("halo:addDockApp", appPath);
+      await loadAll();
+      toast.success("Added to dock");
+    } catch (error) {
+      toast.error(`Could not add app: ${errorMessage(error)}`);
+    }
+  };
+
+  const removeApp = async (path: string) => {
+    try {
+      const next = dockApps.filter((app) => app.path !== path).map((app) => app.path);
+      await window.haloAPI.ipc.invoke("halo:setDockApps", next);
+      await loadAll();
+    } catch (error) {
+      toast.error(`Could not remove app: ${errorMessage(error)}`);
+    }
+  };
+
+  const requestAccess = async () => {
+    try {
+      const result = await window.haloAPI.ipc.invoke<{ trusted: boolean }>(
+        "halo:requestAccessibility",
+      );
+      if (!result.trusted) {
+        await window.haloAPI.ipc.invoke("halo:openAccessibilitySettings");
+        toast.message("Enable Halo in Privacy → Accessibility, then return here.");
+      } else {
+        toast.success("Accessibility is enabled");
+      }
+      await loadAll();
+    } catch (error) {
+      toast.error(`Could not request accessibility access: ${errorMessage(error)}`);
+    }
+  };
+
+  const recalibrate = async () => {
+    try {
+      await window.haloAPI.ipc.invoke("halo:recalibrate");
+      await loadAll();
+      toast.success("Hot zones reset");
+    } catch (error) {
+      toast.error(`Could not reset hot zones: ${errorMessage(error)}`);
+    }
+  };
+
+  const restartWalkthrough = async () => {
+    try {
+      await window.haloAPI.ipc.invoke("halo:restartOnboarding");
+    } catch (error) {
+      toast.error(`Could not restart walkthrough: ${errorMessage(error)}`);
+    }
+  };
+
+  const exportSettings = async () => {
+    try {
+      const result = await window.haloAPI.ipc.invoke<{
+        ok: boolean;
+        canceled?: boolean;
+        error?: string;
+      }>("halo:exportSettings");
+      if (result?.canceled) return;
+      if (result?.ok) {
+        toast.success("Settings exported");
+      } else {
+        toast.error(`Could not export settings: ${result?.error ?? "unknown error"}`);
+      }
+    } catch (error) {
+      toast.error(`Could not export settings: ${errorMessage(error)}`);
+    }
+  };
+
+  const importSettings = async () => {
+    try {
+      const result = await window.haloAPI.ipc.invoke<{
+        ok: boolean;
+        canceled?: boolean;
+        error?: string;
+      }>("halo:importSettings");
+      if (result?.canceled) return;
+      if (result?.ok) {
+        await loadAll();
+        toast.success("Settings imported");
+      } else {
+        toast.error(`Could not import settings: ${result?.error ?? "unknown error"}`);
+      }
+    } catch (error) {
+      toast.error(`Could not import settings: ${errorMessage(error)}`);
+    }
+  };
+
+  const selectZone = useCallback((zone: ZoneId) => {
+    setFocusedZone(zone);
+    window.requestAnimationFrame(() => {
+      document.getElementById("halo-zone-editor")?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+        block: "nearest",
+      });
+    });
+  }, []);
+
+  const setZoneRole = (zone: ZoneId, nextRole: ZoneRole) => {
+    if (!selected) return;
+    if (isCornerZone(zone)) {
       void updateZones({
-        ...selectedDisplay.zones,
-        corners: { ...selectedDisplay.zones.corners, [zone]: role },
+        ...selected.zones,
+        corners: { ...selected.zones.corners, [zone]: nextRole },
       });
       return;
     }
     void updateZones({
-      ...selectedDisplay.zones,
-      edges: { ...selectedDisplay.zones.edges, [zone as EdgeId]: role },
+      ...selected.zones,
+      edges: { ...selected.zones.edges, [zone]: nextRole },
     });
   };
 
-  const requestAccessibility = async () => {
-    try {
-      const result = await window.haloAPI.accessibility.request();
-      if (!result.trusted) {
-        await window.haloAPI.accessibility.openSettings();
-        setStatus("Enable Halo in Privacy & Security → Accessibility, then return here.");
-      } else {
-        setStatus("Accessibility is enabled.");
-      }
-      await loadSettings();
-    } catch (error) {
-      setStatus(`Could not request Accessibility access: ${messageForError(error)}`);
-    }
-  };
-
-  const setLaunchAtLogin = async (next: boolean) => {
-    setAutoLaunch(next);
-    try {
-      setAutoLaunch(await window.haloAPI.app.setAutoLaunch(next));
-    } catch (error) {
-      setAutoLaunch(!next);
-      setStatus(`Could not update launch at login: ${messageForError(error)}`);
-    }
-  };
-
-  const resetHotZones = async () => {
-    try {
-      await window.haloAPI.settings.resetHotZones();
-      await loadSettings();
-      setStatus("Hot-zone measurements reset.");
-    } catch (error) {
-      setStatus(`Could not reset hot zones: ${messageForError(error)}`);
-    }
-  };
-
-  if (!settings) {
-    return <div className="flex h-screen items-center justify-center text-sm text-secondary">Loading Halo…</div>;
-  }
-
+  const focusedRole: ZoneRole | null =
+    selected && focusedZone
+      ? isCornerZone(focusedZone)
+        ? selected.zones.corners[focusedZone]
+        : selected.zones.edges[focusedZone]
+      : null;
   return (
-    <div className="flex h-screen flex-col bg-[#171719] text-primary">
-      <header className="drag-region flex h-16 shrink-0 items-center gap-3 border-b border-white/10 px-5">
-        <img src={appIcon} alt="" className="h-8 w-8 rounded-lg" />
-        <div className="min-w-0 flex-1">
-          <h1 className="text-base font-semibold">Halo</h1>
-          <p className="text-xs text-secondary">Cursor-edge system controls</p>
+    <ScrollArea className="h-full" title="Settings">
+      <div className="mx-auto mb-14 flex w-full max-w-[760px] flex-col px-7 pt-2">
+        <div className="drag-region mb-5 flex items-center gap-3 pt-1">
+          <img
+            className="no-drag size-9 shrink-0 rounded-[10px] object-cover"
+            src={appIcon}
+            width={36}
+            height={36}
+            alt=""
+            draggable={false}
+          />
+          <h1 className="halo-wordmark no-drag text-primary min-w-0 flex-1">Halo</h1>
         </div>
-        <Button
+
+        <TabsRoot
+          value={settingsTab}
+          onValueChange={setSettingsTab}
           className="no-drag"
-          size="small"
-          variant="transparent"
-          aria-label="Close settings"
-          onClick={() => void window.haloAPI.window.closeSettings()}
         >
-          Done
-        </Button>
-      </header>
+          <Tabs variant="filled" size="medium">
+            <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="hot-zones">Hot Zones</TabsTrigger>
+            <TabsTrigger value="quick-dock">Quick Dock</TabsTrigger>
+          </Tabs>
 
-      <main className="min-h-0 flex-1 overflow-auto p-5">
-        <div className="mx-auto flex max-w-3xl flex-col gap-4 pb-8">
-          {status ? <Callout className="text-sm text-secondary">{status}</Callout> : null}
+          <TabsContent value="general" className="halo-settings-panel mt-7 flex flex-col gap-9">
+            {controls ? (
+              controls.accessibilityTrusted ? (
+                <div className="flex flex-col gap-3">
+                  <SettingsEyebrow>Accessibility Access</SettingsEyebrow>
+                  <FieldSet>
+                    <Field label="Accessibility" description="Halo can control system settings.">
+                      <Badge>Allowed</Badge>
+                    </Field>
+                  </FieldSet>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <SettingsEyebrow>Accessibility Access</SettingsEyebrow>
+                  <div className="flex flex-col gap-3 rounded-card bg-well p-4">
+                    <Text color="secondary" variant="small" as="p">
+                      Halo requires permission to interact with other applications and manage
+                      system-level UI controls.
+                    </Text>
+                    <Button
+                      className="self-start"
+                      size="small"
+                      variant="transparent"
+                      onClick={() => void requestAccess()}
+                    >
+                      Open Privacy Settings
+                    </Button>
+                  </div>
+                </div>
+              )
+            ) : null}
 
-          {!controls?.accessibilityTrusted ? (
-            <Callout className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-primary">Accessibility permission is needed</p>
-                <p className="mt-1 text-xs text-secondary">
-                  Enable it to let Halo adjust protected system controls.
-                </p>
+            {controls ? (
+              <div className="flex flex-col gap-3">
+                <SettingsEyebrow>Status</SettingsEyebrow>
+                <FieldSet description="Live system toggles Halo can drive from hot zones.">
+                  <Field label="Mute">
+                    <Badge>{controls.muted ? "Muted" : "Unmuted"}</Badge>
+                  </Field>
+                  <Field label="Keep Awake" description="Session-only display sleep prevention.">
+                    <Badge>{controls.keepAwake ? "On" : "Off"}</Badge>
+                  </Field>
+                </FieldSet>
               </div>
-              <Button size="small" variant="accent" onClick={() => void requestAccessibility()}>
-                Enable
-              </Button>
-            </Callout>
-          ) : null}
+            ) : null}
 
-          <FieldSet title="Where Halo works" description="Choose the display and how many displays respond to your cursor.">
-            <FieldGroup>
-              <Field label="Display">
-                <select
-                  className="rounded-md border border-white/10 bg-black/20 px-2 py-1.5 text-sm text-primary outline-none focus:border-[var(--theme-accent)]"
-                  value={selectedDisplay?.id ?? ""}
-                  onChange={(event) => setSelectedDisplayId(Number(event.currentTarget.value))}
+            {settings ? (
+              <div className="flex flex-col gap-3">
+                <SettingsEyebrow>Bypass Hot Zones</SettingsEyebrow>
+                <Callout>
+                  <Text variant="small" as="p" className="text-primary">
+                    Hold <span className="halo-kbd">⌘⇧E</span> (Command-Shift-E) to temporarily
+                    disable every hot zone.
+                  </Text>
+                  <Text variant="small" color="secondary" as="p" className="mt-2">
+                    Keep holding while you click the menu bar clock, a window’s close button, or
+                    anything else in a corner or along an edge. Release the keys and Halo’s zones
+                    come back immediately.
+                  </Text>
+                </Callout>
+              </div>
+            ) : null}
+
+            {settings ? (
+              <div className="flex flex-col gap-3">
+                <SettingsEyebrow>Global Parameters</SettingsEyebrow>
+                <FieldSet>
+                  <Field label="Launch at Login" description="Start Halo automatically when you sign in.">
+                    <OnOffControl
+                      checked={autoLaunch}
+                      ariaLabel="Launch at login"
+                      onCheckedChange={(value) => void setLaunchAtLogin(value)}
+                    />
+                  </Field>
+                  <Field label="Haptic Feedback" description="Feel detents and zone reveals.">
+                    <OnOffControl
+                      checked={settings.feedback.haptics}
+                      ariaLabel="Haptic feedback"
+                      onCheckedChange={(haptics) =>
+                        void patchSettings({ feedback: { ...settings.feedback, haptics } })
+                      }
+                    />
+                  </Field>
+                  <Field label="Interface Sound" description="Play a quiet system sound on changes.">
+                    <OnOffControl
+                      checked={settings.feedback.sound}
+                      ariaLabel="Interface sound"
+                      onCheckedChange={(sound) =>
+                        void patchSettings({ feedback: { ...settings.feedback, sound } })
+                      }
+                    />
+                  </Field>
+                  <Field
+                    label="Multi-Display Zones"
+                    description="Controls where hot zones are evaluated."
+                  >
+                    <Select
+                      value={settings.displayMode}
+                      onValueChange={(value) =>
+                        void patchSettings({
+                          displayMode: value as HaloSettings["displayMode"],
+                        })
+                      }
+                    >
+                      <SelectTrigger variant="transparent" size="small" className="min-w-[180px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All enabled</SelectItem>
+                        <SelectItem value="cursor-display">Follow cursor</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </FieldSet>
+              </div>
+            ) : null}
+
+            <div className="flex flex-col gap-3">
+              <SettingsEyebrow>Maintenance</SettingsEyebrow>
+              <FieldSet>
+                <Field
+                  label="Reset Hot Zones"
+                  description="Restore zone sizing and screen-edge spacing."
                 >
-                  {displays.map((display) => (
-                    <option key={display.id} value={display.id}>
-                      {display.label}{display.primary ? " (primary)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Active displays" description="Use every screen, or only the screen under the cursor.">
-                <SegmentedControl
-                  value={settings.displayMode}
-                  onValueChange={(value) =>
-                    void updateSettings({ displayMode: value as HaloSettings["displayMode"] })
-                  }
-                >
-                  <SegmentedControlItem value="all">All</SegmentedControlItem>
-                  <SegmentedControlItem value="cursor-display">Cursor only</SegmentedControlItem>
-                </SegmentedControl>
-              </Field>
-              {selectedDisplay ? (
-                <Field label="Hot zones" description="Turn off every zone on this display without deleting its layout.">
-                  <OnOffControl
-                    checked={selectedDisplay.zones.enabled}
-                    label="Enable hot zones"
-                    onChange={(enabled) => void updateZones({ ...selectedDisplay.zones, enabled })}
-                  />
+                  <Button size="small" variant="muted" onClick={() => void recalibrate()}>
+                    Reset
+                  </Button>
                 </Field>
-              ) : null}
-            </FieldGroup>
-          </FieldSet>
+                <Field
+                  label="Walkthrough"
+                  description="Review permissions and test Halo's controls again."
+                >
+                  <Button size="small" variant="muted" onClick={() => void restartWalkthrough()}>
+                    Start again
+                  </Button>
+                </Field>
+                <Field
+                  label="Export Settings"
+                  description="Save zones, dock apps, feedback, and timer settings to a file."
+                >
+                  <Button size="small" variant="muted" onClick={() => void exportSettings()}>
+                    Export…
+                  </Button>
+                </Field>
+                <Field
+                  label="Import Settings"
+                  description="Replace current settings from a previously exported file."
+                >
+                  <Button size="small" variant="muted" onClick={() => void importSettings()}>
+                    Import…
+                  </Button>
+                </Field>
+              </FieldSet>
+            </div>
+          </TabsContent>
 
-          {selectedDisplay ? (
-            <FieldSet title="Hot-zone controls" description="Assign one simple system control to each corner or edge.">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-lg border border-white/10 p-3">
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-secondary">Corners</p>
-                  <FieldGroup>
-                    {CORNERS.map((corner) => (
-                      <Field key={corner.id} label={corner.label}>
-                        <ZoneRoleSelect
-                          value={selectedDisplay.zones.corners[corner.id]}
-                          controls={controls}
-                          onChange={(role) => updateZoneRole(corner.id, role)}
-                        />
-                      </Field>
-                    ))}
-                  </FieldGroup>
-                </div>
-                <div className="rounded-lg border border-white/10 p-3">
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-secondary">Edges</p>
-                  <FieldGroup>
-                    {EDGES.map((edge) => (
-                      <Field key={edge.id} label={edge.label}>
-                        <ZoneRoleSelect
-                          value={selectedDisplay.zones.edges[edge.id]}
-                          controls={controls}
-                          onChange={(role) => updateZoneRole(edge.id, role)}
-                        />
-                      </Field>
-                    ))}
-                  </FieldGroup>
-                </div>
+          <TabsContent value="hot-zones" className="halo-settings-panel mt-7 flex flex-col gap-8">
+            <div className="flex flex-col gap-4">
+              <div>
+                <SettingsEyebrow>Interactive Mapping</SettingsEyebrow>
+                <Text color="secondary" variant="small" as="p" className="mt-1">
+                  Click a corner or edge to customize it.
+                </Text>
               </div>
-            </FieldSet>
-          ) : null}
-
-          <FieldSet title="Preferences">
-            <FieldGroup>
-              <Field label="Hot-zone size" description={`${settings.hotZoneSize}px from each screen edge.`}>
-                <input
-                  className="w-40 accent-[var(--theme-accent)]"
-                  type="range"
-                  min="4"
-                  max="48"
-                  value={settings.hotZoneSize}
-                  onChange={(event) => void updateSettings({ hotZoneSize: Number(event.currentTarget.value) })}
+              {selected ? (
+                <ZoneMap
+                  zones={selected.zones}
+                  selected={focusedZone}
+                  onSelect={selectZone}
                 />
-              </Field>
-              <Field label="Launch at login" description="Keep Halo available from the menu bar after you sign in.">
-                <OnOffControl checked={autoLaunch} label="Launch at login" onChange={setLaunchAtLogin} />
-              </Field>
-              <Field label="Accessibility" description={controls?.accessibilityTrusted ? "Enabled" : "Not enabled"}>
-                <Button size="small" variant="muted" onClick={() => void requestAccessibility()}>
-                  Open settings
-                </Button>
-              </Field>
-            </FieldGroup>
-          </FieldSet>
+              ) : null}
+              <FieldSet>
+                <Field
+                  label="Display"
+                  description={selected?.primary ? "Primary display" : undefined}
+                >
+                  <Select
+                    value={selected ? String(selected.id) : undefined}
+                    onValueChange={(value) => setSelectedDisplayId(Number(value))}
+                  >
+                    <SelectTrigger variant="transparent" size="small" className="min-w-[180px]">
+                      <SelectValue placeholder="Choose a display" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {displays.map((display) => (
+                        <SelectItem key={display.id} value={String(display.id)}>
+                          {display.label}
+                          {display.primary ? " · Primary" : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                {selected ? (
+                  <Field label="Hot Zones" description="Enable corners and edges on this display.">
+                    <OnOffControl
+                      checked={selected.zones.enabled}
+                      ariaLabel="Enable hot zones"
+                      onCheckedChange={(enabled) =>
+                        void updateZones({ ...selected.zones, enabled })
+                      }
+                    />
+                  </Field>
+                ) : null}
+              </FieldSet>
+            </div>
 
-          <div className="flex justify-end">
-            <Button size="small" variant="transparent" onClick={() => void resetHotZones()}>
-              Reset hot-zone measurements
+            {controls && !controls.brightnessSupported ? (
+              <Callout>
+                <Text variant="strong" as="p">
+                  Brightness unavailable
+                </Text>
+                <Text color="secondary" variant="small" as="p">
+                  This Mac cannot expose display brightness to Halo, so that role is hidden from the
+                  menus.
+                </Text>
+              </Callout>
+            ) : null}
+
+            {selected && focusedZone && focusedRole !== null ? (
+              <div
+                id="halo-zone-editor"
+                className="flex flex-col gap-4 rounded-card border border-separator bg-well p-4"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <SettingsEyebrow>Customize</SettingsEyebrow>
+                    <Text variant="strong" as="p" className="mt-1">
+                      {zoneLabel(focusedZone)}
+                    </Text>
+                  </div>
+                  <Badge>{ROLE_LABEL[focusedRole]}</Badge>
+                </div>
+                <FieldSet>
+                  <Field label="Role" description="What this hot zone controls.">
+                    <RoleSelect
+                      value={focusedRole}
+                      ariaLabel={`${zoneLabel(focusedZone)} role`}
+                      keyboardSupported={controls?.keyboardSupported}
+                      brightnessSupported={controls?.brightnessSupported ?? true}
+                      onChange={(nextRole) => setZoneRole(focusedZone, nextRole as ZoneRole)}
+                    />
+                  </Field>
+                </FieldSet>
+                {focusedRole === "focus-timer" && settings?.focusTimer ? (
+                  <div className="flex flex-col gap-2 rounded-control bg-well p-3">
+                    <Field
+                      label="Focus minutes"
+                      description="Length of each focus block."
+                    >
+                      <FocusTimerNumberInput
+                        value={settings.focusTimer.focusMinutes}
+                        minimum={1}
+                        maximum={90}
+                        onCommit={(focusMinutes) =>
+                          void patchSettings({
+                            focusTimer: { ...settings.focusTimer, focusMinutes },
+                          })
+                        }
+                      />
+                    </Field>
+                    <Field label="Short break" description="Minutes between focus blocks.">
+                      <FocusTimerNumberInput
+                        value={settings.focusTimer.shortBreakMinutes}
+                        minimum={1}
+                        maximum={60}
+                        onCommit={(shortBreakMinutes) =>
+                          void patchSettings({
+                            focusTimer: { ...settings.focusTimer, shortBreakMinutes },
+                          })
+                        }
+                      />
+                    </Field>
+                    <Field label="Long break" description="Minutes after a full cycle.">
+                      <FocusTimerNumberInput
+                        value={settings.focusTimer.longBreakMinutes}
+                        minimum={1}
+                        maximum={60}
+                        onCommit={(longBreakMinutes) =>
+                          void patchSettings({
+                            focusTimer: { ...settings.focusTimer, longBreakMinutes },
+                          })
+                        }
+                      />
+                    </Field>
+                    <Field
+                      label="Cycles before long break"
+                      description="Focus blocks before the long break."
+                    >
+                      <FocusTimerNumberInput
+                        value={settings.focusTimer.cyclesBeforeLongBreak}
+                        minimum={1}
+                        maximum={8}
+                        onCommit={(cyclesBeforeLongBreak) =>
+                          void patchSettings({
+                            focusTimer: { ...settings.focusTimer, cyclesBeforeLongBreak },
+                          })
+                        }
+                      />
+                    </Field>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {selected ? (
+              <>
+                <div className="flex flex-col gap-3">
+                  <SettingsEyebrow>Corners</SettingsEyebrow>
+                  <div className="halo-settings-list">
+                    {CORNERS.map((c) => {
+                      const role = selected.zones.corners[c.id];
+                      const active = focusedZone === c.id;
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className={`halo-settings-list-row halo-settings-list-row--button${active ? " halo-settings-list-row--active" : ""}`}
+                          aria-pressed={active}
+                          onClick={() => selectZone(c.id)}
+                        >
+                          <div className="min-w-0 text-left">
+                            <Text variant="small" as="p">
+                              {c.label}
+                            </Text>
+                            <Text color="tertiary" variant="small" as="p" className="mt-0.5 truncate">
+                              {ROLE_LABEL[role]}
+                            </Text>
+                          </div>
+                          <Text color="secondary" variant="small" className="shrink-0">
+                            Edit
+                          </Text>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <SettingsEyebrow>Edges</SettingsEyebrow>
+                  <div className="halo-settings-list">
+                    {EDGES.map((e) => {
+                      const role = selected.zones.edges[e.id];
+                      const active = focusedZone === e.id;
+                      return (
+                        <button
+                          key={e.id}
+                          type="button"
+                          className={`halo-settings-list-row halo-settings-list-row--button${active ? " halo-settings-list-row--active" : ""}`}
+                          aria-pressed={active}
+                          onClick={() => selectZone(e.id)}
+                        >
+                          <div className="min-w-0 text-left">
+                            <Text variant="small" as="p">
+                              {e.label}
+                            </Text>
+                            <Text color="tertiary" variant="small" as="p" className="mt-0.5 truncate">
+                              {ROLE_LABEL[role]}
+                            </Text>
+                          </div>
+                          <Text color="secondary" variant="small" className="shrink-0">
+                            Edit
+                          </Text>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            ) : null}
+          </TabsContent>
+
+          <TabsContent value="quick-dock" className="halo-settings-panel mt-7 flex flex-col gap-5">
+            <div className="flex items-end justify-between gap-4">
+              <div className="min-w-0">
+                <SettingsEyebrow>Quick Dock Apps</SettingsEyebrow>
+                <Text color="secondary" variant="small" as="p" className="mt-1">
+                  Apps available from your Dock hot zone.
+                </Text>
+              </div>
+              <Badge className="tabular-nums shrink-0">{dockApps.length} of 8</Badge>
+            </div>
+
+            <div className="halo-settings-list">
+              {dockApps.map((app) => (
+                <div key={app.path} className="halo-settings-list-row">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <img
+                      src={getFileIconUrl(app.path, { size: 32 })}
+                      alt=""
+                      className="size-8 shrink-0 rounded-lg object-contain"
+                      draggable={false}
+                    />
+                    <Text variant="small" className="truncate">
+                      {app.name}
+                    </Text>
+                  </div>
+                  <Button
+                    size="small"
+                    variant="transparent"
+                    aria-label={`Remove ${app.name} from Quick Dock`}
+                    onClick={() => void removeApp(app.path)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))}
+              {dockApps.length === 0 ? (
+                <Text color="secondary" variant="small" className="py-3">
+                  No apps yet.
+                </Text>
+              ) : null}
+            </div>
+
+            <Button
+              className="self-start"
+              size="small"
+              variant="transparent"
+              aria-expanded={pickerOpen}
+              aria-controls={APP_PICKER_ID}
+              onClick={() => void openAppPicker()}
+            >
+              {pickerOpen ? "Done" : "Manage Apps"}
             </Button>
-          </div>
-        </div>
-      </main>
-    </div>
+
+            {pickerOpen ? (
+              <div
+                id={APP_PICKER_ID}
+                className="halo-inline-picker flex flex-col gap-3 rounded-card bg-well p-3"
+              >
+                <Input
+                  size="small"
+                  aria-label="Search applications"
+                  placeholder="Search applications"
+                  value={appSearch}
+                  onChange={(event) => setAppSearch(event.target.value)}
+                  autoFocus
+                />
+                {pickerLoading ? (
+                  <Text color="secondary" variant="small" className="px-2 py-4">
+                    Scanning applications…
+                  </Text>
+                ) : (
+                  <div className="halo-picker-list flex max-h-72 flex-col gap-1 overflow-y-auto">
+                    {filteredInstalledApps.map((app) => {
+                      const added = dockApps.some((a) => a.path === app.path);
+                      const full = dockApps.length >= 8;
+                      return (
+                        <Button
+                          key={app.path}
+                          disabled={added || full}
+                          variant="transparent"
+                          size="small"
+                          aria-label={
+                            added
+                              ? `${app.name} already added`
+                              : full
+                                ? "Quick Dock full"
+                                : `Add ${app.name}`
+                          }
+                          className="h-auto w-full justify-start gap-3 px-2 py-1.5 text-left"
+                          onClick={() => void addApp(app.path)}
+                        >
+                          <img
+                            src={getFileIconUrl(app.path, { size: 28 })}
+                            alt=""
+                            className="size-7 shrink-0 rounded-md object-contain"
+                            loading="lazy"
+                            draggable={false}
+                          />
+                          <Text className="min-w-0 flex-1 truncate" variant="small">
+                            {app.name}
+                          </Text>
+                          <Text color="secondary" variant="small">
+                            {added ? "Added" : full ? "Dock full" : "Add"}
+                          </Text>
+                        </Button>
+                      );
+                    })}
+                    {installedApps.length > 0 && filteredInstalledApps.length === 0 ? (
+                      <Text color="secondary" variant="small" className="px-2 py-3">
+                        No matching apps.
+                      </Text>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </TabsContent>
+        </TabsRoot>
+      </div>
+    </ScrollArea>
   );
 }
