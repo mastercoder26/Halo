@@ -36,8 +36,7 @@ export function getWindowFileUrl(htmlFileName: string): string {
 /**
  * Absolute path to the built preload script.
  *
- * The Electron build outputs the preload entry to `dist/preload.cjs` with a
- * stable filename, and Electron injects it through `webPreferences.preload`.
+ * The Electron build emits a stable CommonJS preload entry.
  */
 export function getPreloadPath(): string {
   return path.join(DIST_ROOT, "preload.cjs");

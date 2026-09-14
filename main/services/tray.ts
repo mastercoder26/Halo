@@ -3,12 +3,12 @@ import type { Rectangle } from "../platform/electron.js";
 
 import { defaultSettings } from "../types.js";
 import { edgeWatcher } from "./edge-watcher.js";
+import { focusTimer, formatTimerMmSs, phaseLabel } from "./focus-timer.js";
 import { settingsStore } from "./settings-store.js";
-import { openOnboardingWindow } from "../windows/onboarding-window.js";
-import { openMediaWindow } from "../windows/media-window.js";
 import { openSettingsWindow } from "../windows/settings-window.js";
 
 let tray: Tray | null = null;
+let unsubscribeTimer: (() => void) | null = null;
 let unsubscribeBypass: (() => void) | null = null;
 let lastTrayBounds: Rectangle | null = null;
 
@@ -28,21 +28,27 @@ function openSettingsFromTray(bounds: Rectangle | null = lastTrayBounds): void {
   });
 }
 
-function rebuildMenu(): void {
+async function rebuildMenu(): Promise<void> {
   if (!tray) return;
+
+  await focusTimer.ensureConfig();
+  const timer = focusTimer.snapshot();
+  const timerActive = timer.status === "running" || timer.status === "paused";
+  const timerItems = timerActive
+    ? [
+        { label: `Focus Timer · ${formatTimerMmSs(timer.remainingMs)}`, click: () => openSettingsFromTray() },
+        { label: `${phaseLabel(timer.phase)} · ${timer.status === "paused" ? "Paused" : "Running"}`, enabled: false },
+      ]
+    : [];
+
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: "Halo", enabled: false },
       { type: "separator" },
+      { label: "Open Settings…", accelerator: "Command+,", click: () => openSettingsFromTray() },
+      ...timerItems,
       {
-        label: "Open Settings…",
-        accelerator: "Command+,",
-        click: () => openSettingsFromTray(),
-      },
-      { label: "Show Setup…", click: () => void openOnboardingWindow() },
-      { label: "Now Playing…", click: () => void openMediaWindow() },
-      {
-        label: "Reset Hot Zones",
+        label: "Recalibrate Hot Zones",
         click: () => {
           const defaults = defaultSettings();
           void settingsStore.update({
@@ -65,7 +71,8 @@ export async function setupTray(): Promise<void> {
 
   tray = new Tray(createTrayIcon());
   tray.setToolTip("Halo — hold ⌘⇧E to bypass hot zones");
-  rebuildMenu();
+  await rebuildMenu();
+  unsubscribeTimer = focusTimer.onChange(() => void rebuildMenu());
   unsubscribeBypass = edgeWatcher.onBypassChange((held) => {
     tray?.setTitle(held ? "⏸" : "");
     tray?.setToolTip(
@@ -83,6 +90,8 @@ export async function setupTray(): Promise<void> {
 }
 
 export function destroyTray(): void {
+  unsubscribeTimer?.();
+  unsubscribeTimer = null;
   unsubscribeBypass?.();
   unsubscribeBypass = null;
   lastTrayBounds = null;

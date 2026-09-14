@@ -9,28 +9,66 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   app,
-  BrowserWindow,
+  BrowserWindow as ElectronBrowserWindow,
+  type BrowserWindowConstructorOptions,
+  dialog,
   ipcMain,
   Menu,
+  net,
   nativeImage,
   powerSaveBlocker,
+  protocol,
   screen,
+  shell,
   systemPreferences,
   Tray,
 } from "electron";
 
 export {
   app,
-  BrowserWindow,
+  dialog,
   ipcMain,
   Menu,
+  net,
   nativeImage,
   powerSaveBlocker,
+  protocol,
   screen,
+  shell,
   systemPreferences,
   Tray,
 };
 export type { Display, Point, Rectangle } from "electron";
+
+/**
+ * Small compatibility layer for Halo's original window definitions. The old
+ * host accepted a few declarative macOS-only hints and exposed `send` directly
+ * on a window. Electron supports the same behavior through ordinary methods.
+ */
+type HaloWindowOptions = BrowserWindowConstructorOptions & {
+  center?: boolean;
+  hiddenInMissionControl?: boolean;
+  toolbarStyle?: string;
+  windowKey?: string;
+};
+
+export class BrowserWindow extends ElectronBrowserWindow {
+  constructor(options: HaloWindowOptions = {}) {
+    const {
+      center,
+      hiddenInMissionControl: _hiddenInMissionControl,
+      toolbarStyle: _toolbarStyle,
+      windowKey: _windowKey,
+      ...electronOptions
+    } = options;
+    super(electronOptions);
+    if (center) this.center();
+  }
+
+  send(channel: string, ...args: unknown[]): void {
+    this.webContents.send(channel, ...args);
+  }
+}
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 

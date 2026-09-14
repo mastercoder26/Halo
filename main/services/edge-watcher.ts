@@ -1,23 +1,34 @@
 import { logger, screen, type Display, type Point } from "../platform/electron.js";
 
 import { pointInDialRegion, pointInEdgeControlRegion } from "./dial-interaction-region.js";
+import { pointInDockRegion } from "./dock-interaction-region.js";
 import { displaysForMode } from "./display-selection.js";
 import { readBypassChordHeld } from "./hot-zone-bypass.js";
 import { settingsStore } from "./settings-store.js";
 import { getDialSize } from "../windows/dial-overlay.js";
+import { getDockWindow } from "../windows/dock-overlay.js";
 import { EDGE_CONTROL_LENGTH, EDGE_CONTROL_THICKNESS } from "../windows/edge-control-overlay.js";
 import {
   CORNER_IDS,
   EDGE_IDS,
   defaultDisplayZones,
   isCorner,
+  isDialRole,
   isEdge,
+  isHudRole,
   type CornerId,
   type EdgeId,
   type HaloSettings,
   type ZoneId,
   type ZoneRole,
 } from "../types.js";
+import { getFocusTimerWindow } from "../windows/focus-timer-overlay.js";
+import type { OnboardingTarget } from "./onboarding-tour.js";
+
+function getHudWindow(role: ZoneRole, displayId: number, zone: ZoneId) {
+  if (role === "focus-timer") return getFocusTimerWindow(displayId, zone);
+  return null;
+}
 
 export interface HotHit {
   display: Display;
@@ -28,30 +39,36 @@ export interface HotHit {
 type HitListener = (hit: HotHit | null) => void;
 type BypassListener = (held: boolean) => void;
 
-function pointInRect(point: Point, x: number, y: number, width: number, height: number): boolean {
-  return point.x >= x && point.x <= x + width && point.y >= y && point.y <= y + height;
+function pointInRect(p: Point, x: number, y: number, w: number, h: number): boolean {
+  return p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h;
 }
 
+/** True screen-corner hit targets (flush to display bounds — matches dial placement). */
 function cornerRect(
   display: Display,
   corner: CornerId,
   zonePx: number,
-): { x: number; y: number; width: number; height: number } {
+): { x: number; y: number; w: number; h: number } {
   const { bounds } = display;
   const size = Math.max(48, zonePx * 5);
   switch (corner) {
     case "top-left":
-      return { x: bounds.x, y: bounds.y, width: size, height: size };
+      return { x: bounds.x, y: bounds.y, w: size, h: size };
     case "top-right":
-      return { x: bounds.x + bounds.width - size, y: bounds.y, width: size, height: size };
+      return { x: bounds.x + bounds.width - size, y: bounds.y, w: size, h: size };
     case "bottom-left":
-      return { x: bounds.x, y: bounds.y + bounds.height - size, width: size, height: size };
+      return {
+        x: bounds.x,
+        y: bounds.y + bounds.height - size,
+        w: size,
+        h: size,
+      };
     case "bottom-right":
       return {
         x: bounds.x + bounds.width - size,
         y: bounds.y + bounds.height - size,
-        width: size,
-        height: size,
+        w: size,
+        h: size,
       };
   }
 }
@@ -61,35 +78,33 @@ function edgeStrip(
   edge: EdgeId,
   thickness: number,
   insets: HaloSettings["insets"],
-): { x: number; y: number; width: number; height: number } {
+): { x: number; y: number; w: number; h: number } {
   const { bounds } = display;
-  const topInset = Math.min(bounds.height, insets.menuBar + insets.notch);
-  const bottomInset = Math.min(Math.max(0, bounds.height - topInset), insets.dock);
-  const sideHeight = Math.max(0, bounds.height - topInset - bottomInset);
-  const safeThickness = Math.max(6, thickness);
+  const topInset = insets.menuBar + insets.notch;
+  const t = Math.max(6, thickness);
   switch (edge) {
     case "left":
       return {
         x: bounds.x,
         y: bounds.y + topInset,
-        width: safeThickness,
-        height: sideHeight,
+        w: t,
+        h: bounds.height - topInset - insets.dock,
       };
     case "right":
       return {
-        x: bounds.x + bounds.width - safeThickness,
+        x: bounds.x + bounds.width - t,
         y: bounds.y + topInset,
-        width: safeThickness,
-        height: sideHeight,
+        w: t,
+        h: bounds.height - topInset - insets.dock,
       };
     case "top":
-      return { x: bounds.x, y: bounds.y, width: bounds.width, height: safeThickness };
+      return { x: bounds.x, y: bounds.y, w: bounds.width, h: t };
     case "bottom":
       return {
         x: bounds.x,
-        y: bounds.y + bounds.height - safeThickness,
-        width: bounds.width,
-        height: safeThickness,
+        y: bounds.y + bounds.height - t,
+        w: bounds.width,
+        h: t,
       };
   }
 }
@@ -97,43 +112,61 @@ function edgeStrip(
 class EdgeWatcher {
   private timer: ReturnType<typeof setInterval> | null = null;
   private listeners = new Set<HitListener>();
-  private bypassListeners = new Set<BypassListener>();
   private current: HotHit | null = null;
+  private pending: HotHit | null = null;
+  private pendingSince = 0;
+  private paused = false;
+  private onboardingTarget: OnboardingTarget | null = null;
+  /** Hold ⌘⇧E — temporarily ignore hot zones (see hot-zone-bypass.ts). */
+  private bypassHeld = false;
+  private bypassCheckInFlight = false;
+  private bypassListeners = new Set<BypassListener>();
+  // React on the next cursor poll; hot zones should feel immediate.
+  private readonly dwellMs = 0;
+  private readonly dockHideDelayMs = 240;
+  private leaveSince: number | null = null;
   private settings: HaloSettings | null = null;
   private allDisplays: Display[] | null = null;
   private unsubscribeSettings: (() => void) | null = null;
-  private paused = false;
-  private bypassHeld = false;
-  private bypassCheckInFlight = false;
   private ticking = false;
 
   start(intervalMs = 32): void {
     if (this.timer) return;
-    void settingsStore.load().then((settings) => {
-      this.settings = settings;
+    void settingsStore.load().then((s) => {
+      this.settings = s;
     });
-    this.unsubscribeSettings = settingsStore.onChange((settings) => {
-      this.settings = settings;
+    this.unsubscribeSettings = settingsStore.onChange((s) => {
+      this.settings = s;
     });
-    this.timer = setInterval(() => this.tick(), intervalMs);
+    this.timer = setInterval(() => this.tickSync(), intervalMs);
     logger.info("edge-watcher", "Started");
   }
 
   stop(): void {
-    if (this.timer) clearInterval(this.timer);
-    this.timer = null;
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
     this.unsubscribeSettings?.();
     this.unsubscribeSettings = null;
-    this.emit(null);
   }
 
   pause(): void {
     this.paused = true;
-    this.emit(null);
+    this.clearHit();
   }
 
   resume(): void {
     this.paused = false;
+  }
+
+  setOnboardingTarget(target: OnboardingTarget | null): void {
+    this.onboardingTarget = target;
+    this.clearHit();
+  }
+
+  isBypassed(): boolean {
+    return this.bypassHeld || this.paused;
   }
 
   getCurrent(): HotHit | null {
@@ -154,14 +187,10 @@ class EdgeWatcher {
     return () => this.bypassListeners.delete(listener);
   }
 
-  private emit(hit: HotHit | null): void {
-    const unchanged =
-      hit?.display.id === this.current?.display.id &&
-      hit?.zone === this.current?.zone &&
-      hit?.role === this.current?.role;
-    if (unchanged) return;
-    this.current = hit;
-    for (const listener of this.listeners) listener(hit);
+  private clearHit(): void {
+    this.pending = null;
+    this.leaveSince = null;
+    if (this.current) this.emit(null);
   }
 
   private refreshBypassChord(): void {
@@ -171,7 +200,7 @@ class EdgeWatcher {
       .then((held) => {
         if (held === this.bypassHeld) return;
         this.bypassHeld = held;
-        if (held) this.emit(null);
+        if (held) this.clearHit();
         for (const listener of this.bypassListeners) listener(held);
       })
       .finally(() => {
@@ -179,30 +208,75 @@ class EdgeWatcher {
       });
   }
 
-  private tick(): void {
-    this.refreshBypassChord();
-    if (this.paused || this.bypassHeld || this.ticking || !this.settings) return;
+  private emit(hit: HotHit | null): void {
+    this.current = hit;
+    for (const listener of this.listeners) listener(hit);
+  }
 
+  /** Synchronous hot-path — no awaits per frame. */
+  private tickSync(): void {
+    this.refreshBypassChord();
+    if (this.paused || this.bypassHeld || this.ticking) return;
     this.ticking = true;
     try {
+      const settings = this.settings;
+      if (!settings) return;
+
       const point = screen.getCursorScreenPoint();
       const cursorDisplay = screen.getDisplayNearestPoint(point);
-      const displays = displaysForMode(
-        this.settings.displayMode,
-        this.settings.displayMode === "all" ? this.getAllDisplays() : [cursorDisplay],
-        cursorDisplay,
-      );
+      const target = this.onboardingTarget;
+      const displays = target
+        ? this.getAllDisplays().filter((display) => display.id === target.displayId)
+        : displaysForMode(
+            settings.displayMode,
+            settings.displayMode === "all" ? this.getAllDisplays() : [cursorDisplay],
+            cursorDisplay,
+          );
 
+      let hit: HotHit | null = null;
       for (const display of displays) {
-        const zones = this.settings.displays[String(display.id)] ?? defaultDisplayZones();
+        const zones = settings.displays[String(display.id)] ?? defaultDisplayZones();
         if (!zones.enabled) continue;
-        const hit = this.resolveHit(point, display, zones, this.settings);
-        if (hit) {
-          this.emit(hit);
+        const roleOverrides: Partial<Record<ZoneId, ZoneRole>> = target
+          ? { [target.zone]: target.role }
+          : {};
+        hit = this.resolveHit(point, display, zones, roleOverrides, settings);
+        if (
+          hit &&
+          target &&
+          (hit.display.id !== target.displayId || hit.zone !== target.zone || hit.role !== target.role)
+        ) {
+          hit = null;
+        }
+        if (hit) break;
+      }
+
+      if (hit) {
+        this.leaveSince = null;
+        if (
+          this.current &&
+          this.current.display.id === hit.display.id &&
+          this.current.zone === hit.zone &&
+          this.current.role === hit.role
+        ) {
           return;
         }
+        if (
+          !this.pending ||
+          this.pending.display.id !== hit.display.id ||
+          this.pending.zone !== hit.zone
+        ) {
+          this.pending = hit;
+          this.pendingSince = Date.now();
+          return;
+        }
+        if (Date.now() - this.pendingSince >= this.dwellMs) {
+          this.emit(hit);
+          this.pending = null;
+        }
+      } else {
+        this.handleMiss();
       }
-      this.emit(null);
     } catch (error) {
       logger.debug("edge-watcher", "Tick failed", error);
     } finally {
@@ -210,57 +284,76 @@ class EdgeWatcher {
     }
   }
 
+  private handleMiss(): void {
+    this.pending = null;
+    if (!this.current) return;
+    if (isDialRole(this.current.role)) {
+      this.emit(null);
+      return;
+    }
+    if (this.leaveSince == null) this.leaveSince = Date.now();
+    if (Date.now() - this.leaveSince >= this.dockHideDelayMs) {
+      this.leaveSince = null;
+      this.emit(null);
+    }
+  }
+
   private resolveHit(
     point: Point,
     display: Display,
     zones: ReturnType<typeof defaultDisplayZones>,
+    overrides: Partial<Record<ZoneId, ZoneRole>>,
     settings: HaloSettings,
   ): HotHit | null {
-    if (this.current?.display.id === display.id && this.current.role !== "off") {
-      const { zone, role } = this.current;
+    const size = settings.hotZoneSize;
+
+    if (this.current?.role === "dock" && this.current.display.id === display.id) {
+      const dock = getDockWindow(display.id, this.current.zone);
+      if (dock && pointInDockRegion(point, dock.getBounds())) {
+        return { display, zone: this.current.zone, role: "dock" };
+      }
+    }
+
+    if (this.current && isHudRole(this.current.role) && this.current.display.id === display.id) {
+      const hud = getHudWindow(this.current.role, display.id, this.current.zone);
+      if (hud && pointInDockRegion(point, hud.getBounds())) {
+        return { display, zone: this.current.zone, role: this.current.role };
+      }
+    }
+
+    if (this.current && this.current.display.id === display.id && isDialRole(this.current.role)) {
+      const zone = this.current.zone;
       if (isCorner(zone) && pointInDialRegion(point, display.bounds, zone, getDialSize())) {
-        return { display, zone, role };
+        return { display, zone, role: this.current.role };
       }
       if (
         isEdge(zone) &&
         pointInEdgeControlRegion(point, display.bounds, zone, EDGE_CONTROL_LENGTH, EDGE_CONTROL_THICKNESS)
       ) {
-        return { display, zone, role };
+        return { display, zone, role: this.current.role };
       }
     }
 
     for (const corner of CORNER_IDS) {
-      const role = zones.corners[corner];
+      const role = overrides[corner] ?? zones.corners[corner];
       if (role === "off") continue;
-      const rect = cornerRect(display, corner, settings.hotZoneSize);
-      const padding = this.current?.zone === corner ? settings.hotZoneHysteresis : 0;
-      if (
-        pointInRect(
-          point,
-          rect.x - padding,
-          rect.y - padding,
-          rect.width + padding * 2,
-          rect.height + padding * 2,
-        )
-      ) {
+      const rect = cornerRect(display, corner, size);
+      const pad = this.current?.zone === corner && isDialRole(role)
+        ? 0
+        : this.current?.zone === corner
+          ? settings.hotZoneHysteresis
+          : 0;
+      if (pointInRect(point, rect.x - pad, rect.y - pad, rect.w + pad * 2, rect.h + pad * 2)) {
         return { display, zone: corner, role };
       }
     }
 
     for (const edge of EDGE_IDS) {
-      const role = zones.edges[edge];
+      const role = overrides[edge] ?? zones.edges[edge];
       if (role === "off") continue;
-      const rect = edgeStrip(display, edge, settings.hotZoneSize, settings.insets);
-      const padding = this.current?.zone === edge ? settings.hotZoneHysteresis : 0;
-      if (
-        pointInRect(
-          point,
-          rect.x - padding,
-          rect.y - padding,
-          rect.width + padding * 2,
-          rect.height + padding * 2,
-        )
-      ) {
+      const rect = edgeStrip(display, edge, size, settings.insets);
+      const pad = this.current?.zone === edge ? settings.hotZoneHysteresis : 0;
+      if (pointInRect(point, rect.x - pad, rect.y - pad, rect.w + pad * 2, rect.h + pad * 2)) {
         return { display, zone: edge, role };
       }
     }
@@ -275,3 +368,5 @@ class EdgeWatcher {
 }
 
 export const edgeWatcher = new EdgeWatcher();
+
+export { isCorner, isDialRole };

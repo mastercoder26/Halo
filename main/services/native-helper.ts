@@ -9,31 +9,23 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /** Candidate source locations for a compiled Swift helper, in priority order. */
 function sourceCandidates(name: string): string[] {
   return [
-    // Packaged app resource: Contents/Resources/native/<name>
+    // Packaged app resources.
     path.join(process.resourcesPath, "native", name),
-    // Local build: dist/main → project/native/<name>
-    path.join(__dirname, "..", "..", "native", name),
-    // Unpackaged distribution fallback: dist/main → dist/native/<name>
+    // Alternate bundled layout.
     path.join(__dirname, "..", "native", name),
-    // Unbundled development fallback: dist/main/services → project/native/<name>
-    path.join(__dirname, "..", "..", "..", "native", name),
+    // Local development.
+    path.join(__dirname, "..", "..", "native", name),
   ];
 }
 
 const resolvedCache = new Map<string, string>();
 
 /**
- * Return an executable path to a bundled native helper (`brightness`,
- * `modifier-state`).
+ * Return an executable path to a bundled native helper.
  *
- * The published/store app bundle is read-only, and — critically — the publish
- * packaging can strip the executable bit from files under native resources, so they
- * ship as `0644`. Spawning them directly then fails with `EACCES` even though
- * the binary is present and correctly ad-hoc signed. To fix this without ever
- * writing to the read-only bundle, we copy the helper once into a writable
- * userData dir and mark that copy executable, then spawn from the copy.
- * `copyFileSync` preserves the Mach-O's embedded ad-hoc signature, so it still
- * runs. In local dev builds the source is already `0755`, so we use it directly.
+ * Packaged helpers are normally executable in place. If a distribution format
+ * strips that bit, stage a writable copy in Halo's user-data directory and
+ * restore it there without modifying the application bundle.
  */
 export function resolveNativeHelper(name: string): string | null {
   const cached = resolvedCache.get(name);

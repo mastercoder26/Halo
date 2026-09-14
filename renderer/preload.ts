@@ -1,67 +1,72 @@
-/** Electron preload bridge. Only the app's explicit capabilities reach the renderer. */
-
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
-import type {
-  ActiveOverlayState,
-  ControlRole,
-  ControlSnapshot,
-  ControlUpdate,
-  DisplayInfo,
-  DisplayZoneSettings,
-  HaloAPI,
-  HaloSettings,
-  NowPlayingSnapshot,
-} from "./platform/bridge";
+
+import type { HaloAPI, HaloIpcListener } from "./platform/bridge";
+
+const INVOKE_CHANNELS = new Set([
+  "window:openSettings",
+  "window:closeSettings",
+  "halo:getSettings",
+  "halo:updateSettings",
+  "halo:getAutoLaunch",
+  "halo:setAutoLaunch",
+  "halo:getDisplays",
+  "halo:setDisplayZones",
+  "halo:setDisplayMode",
+  "halo:recalibrate",
+  "halo:exportSettings",
+  "halo:importSettings",
+  "halo:getControls",
+  "halo:getOverlayState",
+  "halo:levelFeedback",
+  "halo:setControl",
+  "halo:mediaCommand",
+  "halo:getFocusTimer",
+  "halo:focusTimerCommand",
+  "halo:getOnboardingSetup",
+  "halo:prepareOnboardingTour",
+  "halo:beginOnboardingTour",
+  "halo:closeOnboarding",
+  "halo:completeOnboarding",
+  "halo:restartOnboarding",
+  "halo:requestAccessibility",
+  "halo:getAccessibilityTrusted",
+  "halo:openAccessibilitySettings",
+  "halo:restoreOnboardingPriority",
+  "halo:getDockApps",
+  "halo:getBaseDockApps",
+  "halo:listInstalledApps",
+  "halo:addDockApp",
+  "halo:pickDockApps",
+  "halo:setDockApps",
+  "halo:launchApp",
+  "halo:getFileIconDataUrl",
+  "halo:zoneMeta",
+]);
+
+const EVENT_CHANNELS = new Set([
+  "halo:overlay-state",
+  "halo:settings-focus",
+  "halo:onboarding-tour-progress",
+]);
 
 function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
+  if (!INVOKE_CHANNELS.has(channel)) return Promise.reject(new Error(`Unsupported Halo IPC channel: ${channel}`));
   return ipcRenderer.invoke(channel, ...args) as Promise<T>;
 }
 
-function onOverlayState(listener: (state: ActiveOverlayState | null) => void): () => void {
-  const callback = (_event: IpcRendererEvent, state: ActiveOverlayState | null) => listener(state);
-  ipcRenderer.on("halo:overlay-state", callback);
-  return () => ipcRenderer.removeListener("halo:overlay-state", callback);
-}
-
-const haloAPI: HaloAPI = {
-  window: {
-    closeSettings: () => invoke<void>("window:closeSettings"),
+const api: HaloAPI = {
+  ipc: {
+    invoke,
+    on(channel: string, listener: HaloIpcListener): () => void {
+      if (!EVENT_CHANNELS.has(channel)) throw new Error(`Unsupported Halo event channel: ${channel}`);
+      const callback = (event: IpcRendererEvent, payload: unknown) => listener(event, payload);
+      ipcRenderer.on(channel, callback);
+      return () => ipcRenderer.removeListener(channel, callback);
+    },
   },
-  settings: {
-    get: () => invoke<HaloSettings>("halo:getSettings"),
-    update: (patch) => invoke<HaloSettings>("halo:updateSettings", patch),
-    resetHotZones: () => invoke<HaloSettings>("halo:recalibrate"),
-  },
-  displays: {
-    get: () => invoke<DisplayInfo[]>("halo:getDisplays"),
-    setZones: (displayId, zones) =>
-      invoke<DisplayZoneSettings>("halo:setDisplayZones", displayId, zones),
-  },
-  controls: {
-    get: () => invoke<ControlSnapshot>("halo:getControls"),
-    set: (role: ControlRole, value: number) =>
-      invoke<ControlUpdate>("halo:setControl", { role, value }),
-  },
-  accessibility: {
-    request: () => invoke<{ trusted: boolean }>("halo:requestAccessibility"),
-    openSettings: () => invoke<void>("halo:openAccessibilitySettings"),
-  },
-  app: {
-    getAutoLaunch: () => invoke<boolean>("halo:getAutoLaunch"),
-    setAutoLaunch: (enabled) => invoke<boolean>("halo:setAutoLaunch", enabled),
-  },
-  onboarding: {
-    complete: () => invoke<HaloSettings>("halo:completeOnboarding"),
-  },
-  media: {
-    getNowPlaying: () => invoke<NowPlayingSnapshot>("halo:getNowPlaying"),
-    setPlaying: (playing) => invoke<NowPlayingSnapshot>("halo:setMusicPlaying", playing),
-    seek: (fraction) => invoke<NowPlayingSnapshot>("halo:seekMusic", fraction),
-  },
-  overlay: {
-    getState: () => invoke<ActiveOverlayState | null>("halo:getOverlayState"),
-    onState: onOverlayState,
+  files: {
+    iconDataUrl: (appPath, size = 64) => invoke<string>("halo:getFileIconDataUrl", appPath, size),
   },
 };
 
-contextBridge.exposeInMainWorld("haloAPI", haloAPI);
+contextBridge.exposeInMainWorld("haloAPI", api);
