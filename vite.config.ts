@@ -9,10 +9,12 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
 const windowEntries = [
   "dial-window.html",
+  "dock-window.html",
   "edge-window.html",
-  "media-window.html",
+  "focus-timer-window.html",
   "onboarding-window.html",
   "settings-window.html",
+  "splash-window.html",
 ];
 
 export default defineConfig({
