@@ -13,6 +13,7 @@ const nativeDir = path.join(projectRoot, "native");
 const targets = [
   { src: "brightness.swift", out: "brightness" },
   { src: "modifier-state.swift", out: "modifier-state" },
+  { src: "haptic.swift", out: "haptic" },
 ];
 
 for (const target of targets) {

@@ -71,7 +71,8 @@
         "to": "native",
         "filter": [
           "brightness",
-          "modifier-state"
+          "modifier-state",
+          "haptic"
         ]
       }
     ],
