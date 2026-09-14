@@ -1,18 +1,27 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { positionForSeekFraction, seekFraction } from "./seek-fraction.ts";
+import {
+  dialValueToPosition,
+  formatTrackTime,
+  positionToDialValue,
+} from "./seek-fraction.ts";
 
-test("converts playback time into a clamped seek fraction", () => {
-  assert.equal(seekFraction(45, 90), 0.5);
-  assert.equal(seekFraction(-1, 90), 0);
-  assert.equal(seekFraction(100, 90), 1);
-  assert.equal(seekFraction(45, 0), 0);
+test("converts position and duration to dial percent", () => {
+  assert.equal(positionToDialValue(30, 120), 25);
+  assert.equal(positionToDialValue(0, 0), 0);
+  assert.equal(positionToDialValue(200, 100), 100);
 });
 
-test("converts a seek fraction into a bounded playback position", () => {
-  assert.equal(positionForSeekFraction(0.5, 90), 45);
-  assert.equal(positionForSeekFraction(-1, 90), 0);
-  assert.equal(positionForSeekFraction(2, 90), 90);
-  assert.equal(positionForSeekFraction(0.5, 0), 0);
+test("converts dial percent back to position seconds", () => {
+  assert.equal(dialValueToPosition(25, 120), 30);
+  assert.equal(dialValueToPosition(0, 0), 0);
+  assert.equal(dialValueToPosition(150, 100), 100);
+});
+
+test("formats track time as m:ss", () => {
+  assert.equal(formatTrackTime(0), "0:00");
+  assert.equal(formatTrackTime(65), "1:05");
+  assert.equal(formatTrackTime(3723), "62:03");
+  assert.equal(formatTrackTime(-1), "0:00");
 });
