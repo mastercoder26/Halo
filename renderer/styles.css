@@ -256,6 +256,17 @@ body {
   line-height: 1;
 }
 
+/* Keep branded content clear of the native macOS traffic-light controls. */
+.halo-settings-header {
+  padding-inline-start: 72px;
+}
+
+.halo-app-icon-placeholder {
+  display: inline-block;
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--fg) 10%, transparent);
+}
+
 .halo-settings-eyebrow {
   font-family: Manrope, "Avenir Next", ui-sans-serif, system-ui, sans-serif;
   font-size: 11px;

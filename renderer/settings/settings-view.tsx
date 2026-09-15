@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getFileIconUrl } from "../lib/file-icon";
+import { AppIcon } from "../lib/app-icon";
 import {
   Badge,
   Button,
@@ -339,6 +339,7 @@ export function SettingsView() {
     if (!query) return installedApps;
     return installedApps.filter((app) => app.name.toLocaleLowerCase().includes(query));
   }, [appSearch, installedApps]);
+  const visibleInstalledApps = filteredInstalledApps.slice(0, 40);
 
   const loadAll = useCallback(async () => {
     try {
@@ -603,7 +604,7 @@ export function SettingsView() {
   return (
     <ScrollArea className="h-full" title="Settings">
       <div className="mx-auto mb-14 flex w-full max-w-[760px] flex-col px-7 pt-2">
-        <div className="drag-region mb-5 flex items-center gap-3 pt-1">
+        <div className="halo-settings-header drag-region mb-5 flex min-h-11 items-center gap-3 pt-1">
           <img
             className="no-drag size-9 shrink-0 rounded-[10px] object-cover"
             src={appIcon}
@@ -1013,11 +1014,10 @@ export function SettingsView() {
               {dockApps.map((app) => (
                 <div key={app.path} className="halo-settings-list-row">
                   <div className="flex min-w-0 items-center gap-3">
-                    <img
-                      src={getFileIconUrl(app.path, { size: 32 })}
-                      alt=""
+                    <AppIcon
+                      appPath={app.path}
+                      size={32}
                       className="size-8 shrink-0 rounded-lg object-contain"
-                      draggable={false}
                     />
                     <Text variant="small" className="truncate">
                       {app.name}
@@ -1070,7 +1070,7 @@ export function SettingsView() {
                   </Text>
                 ) : (
                   <div className="halo-picker-list flex max-h-72 flex-col gap-1 overflow-y-auto">
-                    {filteredInstalledApps.map((app) => {
+                    {visibleInstalledApps.map((app) => {
                       const added = dockApps.some((a) => a.path === app.path);
                       const full = dockApps.length >= 8;
                       return (
@@ -1089,12 +1089,10 @@ export function SettingsView() {
                           className="h-auto w-full justify-start gap-3 px-2 py-1.5 text-left"
                           onClick={() => void addApp(app.path)}
                         >
-                          <img
-                            src={getFileIconUrl(app.path, { size: 28 })}
-                            alt=""
+                          <AppIcon
+                            appPath={app.path}
+                            size={28}
                             className="size-7 shrink-0 rounded-md object-contain"
-                            loading="lazy"
-                            draggable={false}
                           />
                           <Text className="min-w-0 flex-1 truncate" variant="small">
                             {app.name}
@@ -1108,6 +1106,11 @@ export function SettingsView() {
                     {installedApps.length > 0 && filteredInstalledApps.length === 0 ? (
                       <Text color="secondary" variant="small" className="px-2 py-3">
                         No matching apps.
+                      </Text>
+                    ) : null}
+                    {filteredInstalledApps.length > visibleInstalledApps.length ? (
+                      <Text color="tertiary" variant="small" className="px-2 py-3 text-center">
+                        Showing the first 40 apps. Search to narrow the list.
                       </Text>
                     ) : null}
                   </div>
