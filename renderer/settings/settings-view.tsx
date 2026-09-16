@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppIcon } from "../lib/app-icon";
 import {
   Badge,
@@ -332,6 +332,7 @@ export function SettingsView() {
   const [focusedZone, setFocusedZone] = useState<ZoneId | null>("top-left");
   const [settingsTab, setSettingsTab] = useState("general");
   const [autoLaunch, setAutoLaunch] = useState(false);
+  const pickerGeneration = useRef(0);
 
   const selected = displays.find((d) => d.id === selectedDisplayId) ?? displays[0] ?? null;
   const filteredInstalledApps = useMemo(() => {
@@ -355,7 +356,11 @@ export function SettingsView() {
       setDockApps(apps);
       setControls(c);
       setAutoLaunch(launch);
-      setSelectedDisplayId((current) => current ?? d[0]?.id ?? null);
+      setSelectedDisplayId((current) =>
+        current != null && d.some((display) => display.id === current)
+          ? current
+          : (d[0]?.id ?? null),
+      );
     } catch (error) {
       toast.error(`Failed to load settings: ${errorMessage(error)}`);
     }
@@ -401,11 +406,15 @@ export function SettingsView() {
         return;
       }
       event.preventDefault();
+      if (pickerOpen) {
+        setPickerOpen(false);
+        return;
+      }
       void window.haloAPI.ipc.invoke("window:closeSettings");
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [pickerOpen]);
 
   const patchSettings = async (patch: Partial<HaloSettings>) => {
     try {
@@ -460,18 +469,22 @@ export function SettingsView() {
       setPickerOpen(false);
       return;
     }
+    const openGeneration = pickerGeneration.current + 1;
+    pickerGeneration.current = openGeneration;
     setPickerOpen(true);
     if (installedApps.length === 0) {
       setPickerLoading(true);
       try {
         const list =
           await window.haloAPI.ipc.invoke<DockAppInfo[]>("halo:listInstalledApps");
+        if (pickerGeneration.current !== openGeneration) return;
         setInstalledApps(list);
       } catch (error) {
+        if (pickerGeneration.current !== openGeneration) return;
         toast.error(`Could not list apps: ${errorMessage(error)}`);
         setPickerOpen(false);
       } finally {
-        setPickerLoading(false);
+        if (pickerGeneration.current === openGeneration) setPickerLoading(false);
       }
     }
   };
