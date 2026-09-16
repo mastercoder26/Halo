@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { TooltipProvider, Toaster } from "../lib/components";
 import { initLogging } from "../lib/utils";
 import { SettingsView } from "./settings-view";
 import "../styles.css";
@@ -14,7 +15,10 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <SettingsView />
+    <TooltipProvider>
+      <SettingsView />
+    </TooltipProvider>
+    <Toaster />
   </React.StrictMode>,
 );
 
