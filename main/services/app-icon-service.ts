@@ -17,6 +17,11 @@ export function loadAppIconPng(appPath: string, size: AppIconSize): Promise<Uint
 }
 
 export async function loadAppIconDataUrl(appPath: string, size: AppIconSize): Promise<string> {
-  const png = await loadAppIconPng(appPath, size);
-  return `data:image/png;base64,${Buffer.from(png).toString("base64")}`;
+  try {
+    const png = await loadAppIconPng(appPath, size);
+    if (png.byteLength === 0) return "";
+    return `data:image/png;base64,${Buffer.from(png).toString("base64")}`;
+  } catch {
+    return "";
+  }
 }
