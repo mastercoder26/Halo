@@ -11,6 +11,14 @@ On first launch, Halo walks through Accessibility access, tests the available sy
 
 Settings includes per-display hot-zone mapping, Quick Dock app selection, feedback preferences, focus-timer durations, launch-at-login, and import/export. Media controls work with Apple Music and Spotify.
 
+## Downloads
+
+GitHub Actions packages an Apple Silicon `.dmg` and `.zip` on every push to `main`.
+
+- Latest automatic build: [Nightly macOS build](https://github.com/mastercoder26/Halo/releases/tag/nightly)
+- Versioned releases: [Releases](https://github.com/mastercoder26/Halo/releases)
+- Per-commit files: the **macOS artifacts** workflow on the [Actions](https://github.com/mastercoder26/Halo/actions) tab
+
 ## Requirements
 
 - macOS

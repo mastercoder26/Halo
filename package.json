@@ -12,6 +12,7 @@
     "dev": "node scripts/dev.mjs",
     "dev:renderer": "vite",
     "package": "npm run build && electron-builder --mac",
+    "package:ci": "npm run build && electron-builder --mac --arm64 --publish never",
     "package:dir": "npm run build && electron-builder --mac --dir",
     "test": "node --test",
     "lint": "eslint .",
