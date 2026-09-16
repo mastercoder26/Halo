@@ -30,6 +30,7 @@ import {
   walkthroughMapZones,
   type OnboardingStage,
 } from "./onboarding-flow";
+import { watchAccessibilityPermission } from "./accessibility-permission-watcher";
 
 function zoneChipLabel(zone: ZoneId): string {
   switch (zone) {
@@ -244,6 +245,32 @@ export function OnboardingView() {
   }, []);
 
   useEffect(() => {
+    if (
+      loadState.kind !== "ready" ||
+      stage !== "permissions" ||
+      !controls ||
+      controls.accessibilityTrusted
+    ) {
+      return;
+    }
+
+    return watchAccessibilityPermission({
+      checkTrusted: async () => {
+        const result = await window.haloAPI.ipc.invoke<{ trusted: boolean }>(
+          "halo:getAccessibilityTrusted",
+        );
+        return result.trusted;
+      },
+      onTrusted: () => {
+        setControls((current) => (current ? { ...current, accessibilityTrusted: true } : current));
+        setPermissionMessage("Accessibility is ready. You can test Halo's controls next.");
+      },
+      schedule: (callback, intervalMs) => window.setInterval(callback, intervalMs),
+      cancel: (timer) => window.clearInterval(timer as number),
+    });
+  }, [controls, loadState.kind, stage]);
+
+  useEffect(() => {
     loadOnboarding();
     return () => {
       loadRequestId.current += 1;
@@ -307,7 +334,7 @@ export function OnboardingView() {
   }, []);
 
   const steps = loadState.kind === "ready" ? loadState.steps : [];
-  const step = stage === "zones" ? steps[index] ?? null : null;
+  const step = stage === "zones" ? (steps[index] ?? null) : null;
   const total = steps.length;
 
   const requestAccessibility = async () => {
@@ -323,10 +350,14 @@ export function OnboardingView() {
         setPermissionMessage("Accessibility is ready. You can test Halo's controls next.");
       } else {
         await window.haloAPI.ipc.invoke("halo:openAccessibilitySettings");
-        setPermissionMessage("Enable Halo in Privacy & Security → Accessibility, then come back and check again.");
+        setPermissionMessage(
+          "Enable Halo in Privacy & Security → Accessibility, then come back and check again.",
+        );
       }
     } catch (error) {
-      setPermissionMessage(error instanceof Error ? error.message : "Couldn't request Accessibility access.");
+      setPermissionMessage(
+        error instanceof Error ? error.message : "Couldn't request Accessibility access.",
+      );
     } finally {
       setBusy(false);
     }
@@ -341,7 +372,10 @@ export function OnboardingView() {
       );
     }
     const snapshot = await refreshControls();
-    const nextStage = advanceOnboardingStage("permissions", Boolean(snapshot?.accessibilityTrusted));
+    const nextStage = advanceOnboardingStage(
+      "permissions",
+      Boolean(snapshot?.accessibilityTrusted),
+    );
     if (nextStage === "permissions") {
       setPermissionMessage("Accessibility is required before Halo can safely test controls.");
       return;
@@ -365,9 +399,17 @@ export function OnboardingView() {
           ? { ...current, volume: result.value }
           : { ...current, muted: result.value >= 50 };
       });
-      setControlMessage(role === "volume" ? `Volume set to ${result.value}%` : result.value >= 50 ? "Muted" : "Unmuted");
+      setControlMessage(
+        role === "volume"
+          ? `Volume set to ${result.value}%`
+          : result.value >= 50
+            ? "Muted"
+            : "Unmuted",
+      );
     } catch (error) {
-      setControlMessage(error instanceof Error ? error.message : "Halo couldn't change that control.");
+      setControlMessage(
+        error instanceof Error ? error.message : "Halo couldn't change that control.",
+      );
     } finally {
       setBusy(false);
     }
@@ -407,7 +449,9 @@ export function OnboardingView() {
       setIndex(0);
       setStage(nextLoadState.steps.length > 0 ? "map" : "empty");
     } catch (error) {
-      setFinishError(error instanceof Error ? error.message : "Couldn't start the hot-zone walkthrough.");
+      setFinishError(
+        error instanceof Error ? error.message : "Couldn't start the hot-zone walkthrough.",
+      );
     } finally {
       setBusy(false);
     }
@@ -431,7 +475,9 @@ export function OnboardingView() {
       setIndex(0);
       setStage(nextLoadState.steps.length > 0 ? "zones" : "empty");
     } catch (error) {
-      setFinishError(error instanceof Error ? error.message : "Couldn't start the live hot-zone tour.");
+      setFinishError(
+        error instanceof Error ? error.message : "Couldn't start the live hot-zone tour.",
+      );
     } finally {
       setBusy(false);
     }
@@ -524,7 +570,8 @@ export function OnboardingView() {
         {loadState.kind === "ready" && stage === "permissions" ? (
           <>
             <p className="halo-onboarding-copy">
-              First, give Halo the permission it needs. Accessibility lets it adjust your Mac’s controls safely.
+              First, give Halo the permission it needs. Accessibility lets it adjust your Mac’s
+              controls safely.
             </p>
             <div className="halo-onboarding-permissions">
               <div className="halo-onboarding-permission-row">
@@ -546,7 +593,11 @@ export function OnboardingView() {
                 )}
               </div>
             </div>
-            {permissionMessage ? <p className="halo-onboarding-note" role="status">{permissionMessage}</p> : null}
+            {permissionMessage ? (
+              <p className="halo-onboarding-note" role="status">
+                {permissionMessage}
+              </p>
+            ) : null}
             <OnboardingActions
               busy={busy}
               onClose={() => void closeForNow()}
@@ -605,14 +656,17 @@ export function OnboardingView() {
                 <button
                   type="button"
                   className="halo-onboarding-inline-btn"
-                  onClick={() => void runControlChange("mute", muteValueForOnboarding(Boolean(controls?.muted)))}
+                  onClick={() =>
+                    void runControlChange("mute", muteValueForOnboarding(Boolean(controls?.muted)))
+                  }
                   disabled={busy || !controls?.accessibilityTrusted}
                 >
                   {controls?.muted ? "Unmute" : "Mute"}
                 </button>
               </div>
               <p className="halo-onboarding-note" role="status" aria-live="polite">
-                {controlMessage ?? "These make real system changes. Halo keeps each volume adjustment to 5%."}
+                {controlMessage ??
+                  "These make real system changes. Halo keeps each volume adjustment to 5%."}
               </p>
             </div>
             <OnboardingActions
@@ -625,7 +679,8 @@ export function OnboardingView() {
         {loadState.kind === "ready" && stage === "calibration" && setup ? (
           <>
             <p className="halo-onboarding-copy">
-              Choose the display for this walkthrough, then set the size of Halo&apos;s activation areas.
+              Choose the display for this walkthrough, then set the size of Halo&apos;s activation
+              areas.
             </p>
             <FieldSet className="mt-4" title="Walkthrough calibration">
               <FieldGroup>
@@ -683,19 +738,24 @@ export function OnboardingView() {
         {loadState.kind === "ready" && stage === "empty" ? (
           <>
             <p className="halo-onboarding-copy">
-              This display has no usable hot zones yet. Configure a control in Settings, then start the walkthrough again.
+              This display has no usable hot zones yet. Configure a control in Settings, then start
+              the walkthrough again.
             </p>
             <OnboardingActions
               busy={busy}
               onClose={() => void closeForNow()}
-              primaryAction={{ label: "Open Settings", onClick: () => void openSettingsWithoutCompleting() }}
+              primaryAction={{
+                label: "Open Settings",
+                onClick: () => void openSettingsWithoutCompleting(),
+              }}
             />
           </>
         ) : null}
         {loadState.kind === "ready" && stage === "map" ? (
           <>
             <p className="halo-onboarding-copy">
-              Halo listens at all four corners and all four screen edges. The highlighted areas show every place you can activate it.
+              Halo listens at all four corners and all four screen edges. The highlighted areas show
+              every place you can activate it.
             </p>
             <p className="halo-onboarding-instruction">
               The live tour will activate only the configured, available controls on this display.
@@ -711,14 +771,17 @@ export function OnboardingView() {
           <>
             <p className="halo-onboarding-copy">{step.copy}</p>
             <p className="halo-onboarding-instruction">
-              Move your cursor into the highlighted zone. Halo will continue after its control appears.
+              Move your cursor into the highlighted zone. Halo will continue after its control
+              appears.
             </p>
             <OnboardingActions busy={busy} onClose={() => void closeForNow()} />
           </>
         ) : null}
         {loadState.kind === "ready" && stage === "complete" ? (
           <>
-            <p className="halo-onboarding-copy">You&apos;ve tried every usable hot zone on this display.</p>
+            <p className="halo-onboarding-copy">
+              You&apos;ve tried every usable hot zone on this display.
+            </p>
             <OnboardingActions
               busy={busy}
               onClose={() => void closeForNow()}
@@ -726,7 +789,11 @@ export function OnboardingView() {
             />
           </>
         ) : null}
-        {finishError ? <p className="halo-onboarding-note is-error" role="alert">{finishError}</p> : null}
+        {finishError ? (
+          <p className="halo-onboarding-note is-error" role="alert">
+            {finishError}
+          </p>
+        ) : null}
       </div>
     </div>
   );

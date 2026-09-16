@@ -6,7 +6,7 @@ import { watchAccessibilityPermission } from "./accessibility-permission-watcher
 
 test("watches for Accessibility permission until macOS reports it granted", async () => {
   const pendingChecks: Array<(trusted: boolean) => void> = [];
-  let scheduledCheck: (() => void) | null = null;
+  const scheduledCheck: { current?: () => void } = {};
   let trustedNotifications = 0;
   let clearedTimer: unknown;
 
@@ -19,7 +19,7 @@ test("watches for Accessibility permission until macOS reports it granted", asyn
       trustedNotifications += 1;
     },
     schedule: (callback) => {
-      scheduledCheck = callback;
+      scheduledCheck.current = callback;
       return "permission-poll";
     },
     cancel: (timer) => {
@@ -31,7 +31,7 @@ test("watches for Accessibility permission until macOS reports it granted", asyn
   pendingChecks.shift()?.(false);
   await setImmediate();
 
-  scheduledCheck?.();
+  scheduledCheck.current?.();
   assert.equal(pendingChecks.length, 1, "permission should be checked again while it is denied");
   pendingChecks.shift()?.(true);
   await setImmediate();
@@ -39,16 +39,20 @@ test("watches for Accessibility permission until macOS reports it granted", asyn
   assert.equal(trustedNotifications, 1, "granting access should update onboarding immediately");
 
   stopWatching();
-  scheduledCheck?.();
+  scheduledCheck.current?.();
   await setImmediate();
 
   assert.equal(clearedTimer, "permission-poll");
-  assert.equal(pendingChecks.length, 0, "stopping the watcher should prevent later permission checks");
+  assert.equal(
+    pendingChecks.length,
+    0,
+    "stopping the watcher should prevent later permission checks",
+  );
 });
 
 test("does not overlap slow Accessibility permission checks", async () => {
   const pendingChecks: Array<(trusted: boolean) => void> = [];
-  let scheduledCheck: (() => void) | null = null;
+  const scheduledCheck: { current?: () => void } = {};
 
   const stopWatching = watchAccessibilityPermission({
     checkTrusted: () =>
@@ -57,19 +61,19 @@ test("does not overlap slow Accessibility permission checks", async () => {
       }),
     onTrusted: () => undefined,
     schedule: (callback) => {
-      scheduledCheck = callback;
+      scheduledCheck.current = callback;
       return 1;
     },
     cancel: () => undefined,
   });
 
-  scheduledCheck?.();
-  scheduledCheck?.();
+  scheduledCheck.current?.();
+  scheduledCheck.current?.();
   assert.equal(pendingChecks.length, 1);
 
   pendingChecks.shift()?.(false);
   await setImmediate();
-  scheduledCheck?.();
+  scheduledCheck.current?.();
   assert.equal(pendingChecks.length, 1);
 
   stopWatching();
