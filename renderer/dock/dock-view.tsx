@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { getFileIconUrl } from "../lib/file-icon";
+import { AppIcon } from "../lib/app-icon";
 
 import { HALO_AMBER, HALO_HAIRLINE, HALO_INSET } from "../brand";
 
@@ -105,16 +105,11 @@ export function DockView() {
                 disabled={!visible || launchingPath !== null}
                 aria-busy={launchingPath === app.path || undefined}
               >
-                <img
-                  src={getFileIconUrl(app.path, { size: 44 })}
+                <AppIcon
+                  appPath={app.path}
                   alt={app.name}
-                  width={44}
-                  height={44}
+                  size={44}
                   className="size-11 object-contain drop-shadow-[0_6px_12px_rgba(0,0,0,0.35)]"
-                  loading="lazy"
-                  decoding="async"
-                  draggable={false}
-                  onContextMenu={(event) => event.preventDefault()}
                 />
                 <span
                   className="mt-1 h-[3px] rounded-full transition-[width,opacity] duration-150"
