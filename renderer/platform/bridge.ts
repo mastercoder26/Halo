@@ -1,73 +1,14 @@
-/** The complete, renderer-safe contract exposed by the Electron preload script. */
+/** Renderer-safe API exposed by Halo's Electron preload. */
 
-import type {
-  ActiveOverlayState,
-  ControlSnapshot,
-  DisplayZoneSettings,
-  HaloSettings,
-  NowPlayingSnapshot,
-  ZoneRole,
-} from "../../main/types.ts";
-
-export type {
-  ActiveOverlayState,
-  ControlSnapshot,
-  DisplayZoneSettings,
-  HaloSettings,
-  NowPlayingSnapshot,
-  ZoneRole,
-};
-
-export type ControlRole = Exclude<ZoneRole, "off">;
-
-export interface DisplayInfo {
-  id: number;
-  label: string;
-  primary: boolean;
-  zones: DisplayZoneSettings;
-}
-
-export interface ControlUpdate {
-  role: ControlRole;
-  value: number;
-}
+export type HaloIpcListener = (event: unknown, payload: unknown) => void;
 
 export interface HaloAPI {
-  window: {
-    closeSettings(): Promise<void>;
+  ipc: {
+    invoke<T = unknown>(channel: string, ...args: unknown[]): Promise<T>;
+    on(channel: string, listener: HaloIpcListener): () => void;
   };
-  settings: {
-    get(): Promise<HaloSettings>;
-    update(patch: Partial<HaloSettings>): Promise<HaloSettings>;
-    resetHotZones(): Promise<HaloSettings>;
-  };
-  displays: {
-    get(): Promise<DisplayInfo[]>;
-    setZones(displayId: number, zones: DisplayZoneSettings): Promise<DisplayZoneSettings>;
-  };
-  controls: {
-    get(): Promise<ControlSnapshot>;
-    set(role: ControlRole, value: number): Promise<ControlUpdate>;
-  };
-  accessibility: {
-    request(): Promise<{ trusted: boolean }>;
-    openSettings(): Promise<void>;
-  };
-  app: {
-    getAutoLaunch(): Promise<boolean>;
-    setAutoLaunch(enabled: boolean): Promise<boolean>;
-  };
-  onboarding: {
-    complete(): Promise<HaloSettings>;
-  };
-  media: {
-    getNowPlaying(): Promise<NowPlayingSnapshot>;
-    setPlaying(playing: boolean): Promise<NowPlayingSnapshot>;
-    seek(fraction: number): Promise<NowPlayingSnapshot>;
-  };
-  overlay: {
-    getState(): Promise<ActiveOverlayState | null>;
-    onState(listener: (state: ActiveOverlayState | null) => void): () => void;
+  files: {
+    iconDataUrl(appPath: string, size?: 16 | 32 | 64): Promise<string>;
   };
 }
 

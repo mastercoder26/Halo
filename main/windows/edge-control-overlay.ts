@@ -50,6 +50,7 @@ async function createEdgeControlWindow(
 ): Promise<BrowserWindow> {
   const { width, height } = getEdgeControlWindowSize(edge);
   const win = new BrowserWindow({
+    windowKey: key,
     width,
     height,
     frame: false,
@@ -117,6 +118,6 @@ export function destroyAllEdgeControls(): void {
 
 export function broadcastToEdgeControlWindows(channel: string, payload: unknown): void {
   for (const win of windows.values()) {
-    if (!win.isDestroyed()) win.webContents.send(channel, payload);
+    if (!win.isDestroyed()) win.send(channel, payload);
   }
 }

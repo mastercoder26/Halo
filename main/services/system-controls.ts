@@ -6,7 +6,6 @@ import { logger, powerSaveBlocker, systemPreferences } from "../platform/electro
 import type { ControlSnapshot, ZoneRole } from "../types.js";
 import { resolveNativeHelper } from "./native-helper.js";
 import { parseKeyboardBacklight } from "./keyboard-backlight.js";
-import { getNowPlaying, setMusicPlaying } from "./now-playing.js";
 import { ControlValueCache, writeThenCommit } from "./control-value-cache.js";
 import {
   dialValueToKeepAwake,
@@ -14,6 +13,11 @@ import {
   keepAwakeToDialValue,
   mutedToDialValue,
 } from "./toggle-mapping.js";
+import { dialValueToPosition, positionToDialValue } from "./seek-fraction.js";
+import {
+  getNowPlayingState,
+  seekNowPlaying,
+} from "./now-playing.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -269,8 +273,10 @@ export async function getValueForRole(role: ZoneRole, displayId?: number): Promi
       return mutedToDialValue(await getMuted());
     case "keep-awake":
       return keepAwakeToDialValue(getKeepAwake());
-    case "now-playing":
-      return (await getNowPlaying()).playing ? 100 : 0;
+    case "now-playing": {
+      const state = await getNowPlayingState();
+      return positionToDialValue(state.position, state.duration);
+    }
     default:
       return 0;
   }
@@ -302,8 +308,12 @@ export async function setValueForRole(
       const active = dialValueToKeepAwake(value);
       return keepAwakeToDialValue(setKeepAwake(active));
     }
-    case "now-playing":
-      return (await setMusicPlaying(value >= 50)).playing ? 100 : 0;
+    case "now-playing": {
+      const state = await getNowPlayingState();
+      const position = dialValueToPosition(value, state.duration);
+      await seekNowPlaying(state.duration > 0 ? position / state.duration : 0);
+      return positionToDialValue(position, state.duration);
+    }
     default:
       return 0;
   }

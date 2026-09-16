@@ -1,6 +1,6 @@
-// Halo backend — focused menu bar utility for cursor-edge controls.
+// Halo backend — standalone macOS menu-bar utility with edge overlays.
 
-import { app, Menu, logger, screen } from "./platform/electron.js";
+import { app, Menu, logger, protocol, screen } from "./platform/electron.js";
 
 import { registerHandlers } from "./handlers/index.js";
 import { edgeWatcher } from "./services/edge-watcher.js";
@@ -8,12 +8,40 @@ import { startOverlayManager, stopOverlayManager } from "./services/overlay-mana
 import { settingsStore } from "./services/settings-store.js";
 import { destroyTray, setupTray } from "./services/tray.js";
 import { destroyAllDials } from "./windows/dial-overlay.js";
+import { destroyAllDocks } from "./windows/dock-overlay.js";
 import { destroyAllEdgeControls } from "./windows/edge-control-overlay.js";
-import { openOnboardingWindow } from "./windows/onboarding-window.js";
-import { closeMediaWindow, openMediaWindow } from "./windows/media-window.js";
+import { destroyAllFocusTimers } from "./windows/focus-timer-overlay.js";
+import { destroyOnboarding, startOnboardingIfNeeded } from "./windows/onboarding-overlay.js";
 import { openSettingsWindow } from "./windows/settings-window.js";
+import {
+  destroyLaunchSplash,
+  dismissLaunchSplash,
+  showLaunchSplash,
+} from "./windows/splash-window.js";
+
+protocol.registerSchemesAsPrivileged([
+  { scheme: "halo-icon", privileges: { secure: true, standard: true, supportFetchAPI: true } },
+]);
 
 registerHandlers();
+
+function registerIconProtocol(): void {
+  protocol.handle("halo-icon", async (request) => {
+    const url = new URL(request.url);
+    const appPath = url.searchParams.get("path");
+    if (!appPath?.endsWith(".app")) return new Response(null, { status: 404 });
+    const sizeValue = Number(url.searchParams.get("size"));
+    const size = sizeValue <= 16 ? "small" : sizeValue <= 32 ? "normal" : "large";
+    try {
+      const icon = await app.getFileIcon(appPath, { size });
+      return new Response(new Uint8Array(icon.toPNG()), {
+        headers: { "content-type": "image/png", "cache-control": "private, max-age=86400" },
+      });
+    } catch {
+      return new Response(null, { status: 404 });
+    }
+  });
+}
 
 function setupApplicationMenu(): void {
   Menu.setApplicationMenu(
@@ -28,8 +56,6 @@ function setupApplicationMenu(): void {
             accelerator: "Command+,",
             click: () => void openSettingsWindow(),
           },
-          { label: "Show Setup…", click: () => void openOnboardingWindow() },
-          { label: "Now Playing…", click: () => void openMediaWindow() },
           { type: "separator" },
           { role: "hide" },
           { role: "hideOthers" },
@@ -44,26 +70,17 @@ function setupApplicationMenu(): void {
   );
 }
 
-async function openPrimaryWindow(): Promise<void> {
-  const settings = await settingsStore.load();
-  if (!settings.onboardingCompleted) {
-    await openOnboardingWindow();
-    return;
-  }
-  await openSettingsWindow();
-}
-
 app.on("window-all-closed", () => {
-  // Halo remains available through the menu bar.
+  // Halo stays available from the menu bar.
 });
 
 app.on("activate", () => {
   try {
     app.dock?.hide();
   } catch {
-    // The accessory app has no Dock presence.
+    // Accessory apps may not expose a Dock API.
   }
-  void openPrimaryWindow();
+  void openSettingsWindow();
 });
 
 app.on("before-quit", () => {
@@ -71,23 +88,34 @@ app.on("before-quit", () => {
   stopOverlayManager();
   destroyTray();
   destroyAllDials();
+  destroyAllDocks();
   destroyAllEdgeControls();
-  closeMediaWindow();
+  destroyAllFocusTimers();
+  destroyOnboarding();
+  destroyLaunchSplash();
 });
 
 app.whenReady().then(async () => {
   logger.info("main", "Halo ready");
+  registerIconProtocol();
   try {
     await app.dock?.hide();
   } catch {
-    // The accessory app has no Dock presence.
+    // Halo is an accessory until Settings is opened.
   }
+
+  const splashReady = showLaunchSplash().catch((error) => {
+    logger.warn("main", "Launch splash failed", error);
+  });
 
   await settingsStore.load();
   setupApplicationMenu();
   await setupTray();
   startOverlayManager();
-  await openPrimaryWindow();
+
+  await splashReady;
+  await dismissLaunchSplash();
+  await startOnboardingIfNeeded();
 
   screen.on("display-added", () => edgeWatcher.invalidateDisplayCache());
   screen.on("display-removed", () => edgeWatcher.invalidateDisplayCache());

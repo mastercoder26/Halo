@@ -42,6 +42,7 @@ async function createDialWindow(
   corner: CornerId,
 ): Promise<BrowserWindow> {
   const win = new BrowserWindow({
+    windowKey: key,
     width: DIAL_SIZE,
     height: DIAL_SIZE,
     frame: false,
@@ -109,6 +110,6 @@ export function destroyAllDials(): void {
 
 export function broadcastToDialWindows(channel: string, payload: unknown): void {
   for (const win of windows.values()) {
-    if (!win.isDestroyed()) win.webContents.send(channel, payload);
+    if (!win.isDestroyed()) win.send(channel, payload);
   }
 }
