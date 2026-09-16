@@ -109,8 +109,8 @@ function TimerDigits({ value }: { value: string }) {
 const EMPTY: FocusTimerMeta = {
   phase: "focus",
   status: "idle",
-  remainingMs: 25 * 60_000,
-  totalMs: 25 * 60_000,
+  remainingMs: 0,
+  totalMs: 0,
   cycleIndex: 0,
   cyclesBeforeLongBreak: 4,
 };
@@ -132,13 +132,18 @@ export function FocusTimerView() {
         setState(null);
       }
     });
+    let cancelled = false;
     void window.haloAPI.ipc.invoke<OverlayState | null>("halo:getOverlayState").then((next) => {
+      if (cancelled) return;
       if (next && next.role === "focus-timer") {
         setState(next);
         setVisible(true);
       }
     });
-    return unsub;
+    return () => {
+      cancelled = true;
+      unsub();
+    };
   }, []);
 
   useEffect(() => {
