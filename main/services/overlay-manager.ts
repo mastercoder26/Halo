@@ -305,6 +305,13 @@ function maybeHaptic(): void {
   void hapticAlignment();
 }
 
+function presentOverlayWindow(win: { isVisible(): boolean; showInactive(): void }): void {
+  const alreadyVisible = win.isVisible();
+  win.showInactive();
+  if (!alreadyVisible) maybeHaptic();
+  notifyOverlayShown();
+}
+
 function hideNonDialOverlays(): void {
   hideAllDocks();
   hideAllFocusTimers();
@@ -331,6 +338,7 @@ async function showDial(hit: HotHit, corner: CornerId): Promise<void> {
     await showDialWithValue(win, hit, corner, value, undefined, seq);
   } catch (error) {
     logger.debug("overlay-manager", "Control value unavailable", error);
+    if (seq === showSeq) hideEverything();
   }
 }
 
@@ -360,12 +368,7 @@ async function showDialWithValue(
   });
   showOnlyDial(hit.display.id, corner);
   sendActiveToWindow(win);
-  const becameVisible = !win.isVisible();
-  if (becameVisible) {
-    win.showInactive();
-    maybeHaptic();
-  }
-  if (becameVisible) notifyOverlayShown();
+  presentOverlayWindow(win);
   if (hit.role === "now-playing") startMediaPoll(win, seq);
 }
 
@@ -390,6 +393,7 @@ async function showEdgeControl(hit: HotHit, edge: EdgeId): Promise<void> {
     await showEdgeControlWithValue(win, hit, edge, value, undefined, seq);
   } catch (error) {
     logger.debug("overlay-manager", "Control value unavailable", error);
+    if (seq === showSeq) hideEverything();
   }
 }
 
@@ -420,12 +424,7 @@ async function showEdgeControlWithValue(
   });
   showOnlyEdgeControl(hit.display.id, edge);
   sendActiveToWindow(win);
-  const becameVisible = !win.isVisible();
-  if (becameVisible) {
-    win.showInactive();
-    maybeHaptic();
-  }
-  if (becameVisible) notifyOverlayShown();
+  presentOverlayWindow(win);
   if (hit.role === "now-playing") startMediaPoll(win, seq);
 }
 
@@ -457,12 +456,7 @@ async function showDock(hit: HotHit): Promise<void> {
   });
   showOnlyDock(hit.display.id, hit.zone);
   sendActiveToWindow(win);
-  const becameVisible = !win.isVisible();
-  if (becameVisible) {
-    win.showInactive();
-    maybeHaptic();
-  }
-  if (becameVisible) notifyOverlayShown();
+  presentOverlayWindow(win);
 }
 
 async function showFocusTimer(hit: HotHit): Promise<void> {
@@ -494,12 +488,7 @@ async function showFocusTimer(hit: HotHit): Promise<void> {
   });
   showOnlyFocusTimer(hit.display.id, hit.zone);
   sendActiveToWindow(win);
-  const becameVisible = !win.isVisible();
-  if (becameVisible) {
-    win.showInactive();
-    maybeHaptic();
-  }
-  if (becameVisible) notifyOverlayShown();
+  presentOverlayWindow(win);
   startFocusTimerPoll(win, seq);
 }
 
