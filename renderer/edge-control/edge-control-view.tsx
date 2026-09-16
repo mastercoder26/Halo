@@ -203,6 +203,19 @@ export function EdgeControlView() {
         }
         setVisible(true);
       } else {
+        if (flushTimer.current != null) {
+          window.clearTimeout(flushTimer.current);
+          flushTimer.current = null;
+        }
+        if (scrubReleaseTimer.current != null) {
+          window.clearTimeout(scrubReleaseTimer.current);
+          scrubReleaseTimer.current = null;
+        }
+        pendingUpdate.current = null;
+        pointerMode.current = "none";
+        dragging.current = false;
+        scrubbing.current = false;
+        setDraggingUi(false);
         valueState.current.reset();
         detentTracker.current.reset();
         roleRef.current = null;
@@ -211,7 +224,9 @@ export function EdgeControlView() {
         setMediaBusy(false);
       }
     });
+    let cancelled = false;
     void window.haloAPI.ipc.invoke<OverlayState | null>("halo:getOverlayState").then((next) => {
+      if (cancelled) return;
       if (next && isDialOverlayRole(next.role)) {
         setState(next);
         roleRef.current = next.role;
@@ -222,7 +237,10 @@ export function EdgeControlView() {
         setVisible(true);
       }
     });
-    return unsub;
+    return () => {
+      cancelled = true;
+      unsub();
+    };
   }, []);
 
   useEffect(() => {
