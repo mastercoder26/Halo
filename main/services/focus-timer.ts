@@ -35,6 +35,7 @@ class FocusTimerService {
   private tickTimer: ReturnType<typeof setInterval> | null = null;
   private listeners = new Set<Listener>();
   private configLoaded = false;
+  private configLoad: Promise<void> | null = null;
 
   onChange(listener: Listener): () => void {
     this.listeners.add(listener);
@@ -102,18 +103,28 @@ class FocusTimerService {
 
   async ensureConfig(): Promise<void> {
     if (this.configLoaded) return;
-    const settings = await settingsStore.load();
-    this.applyConfig(settings.focusTimer);
-    this.configLoaded = true;
+    this.configLoad ??= (async () => {
+      const settings = await settingsStore.load();
+      if (!this.configLoaded) this.applyConfig(settings.focusTimer);
+    })();
+    await this.configLoad;
   }
 
   applyConfig(config: FocusTimerSettings): void {
     this.config = { ...config };
-    if (this.status === "idle") {
-      this.totalMs = durationMsForPhase(this.phase, this.config);
-      this.remainingMs = this.totalMs;
+    this.configLoaded = true;
+    if (this.status === "running") return;
+    const nextTotal = durationMsForPhase(this.phase, this.config);
+    if (this.status === "paused" && this.totalMs > 0) {
+      const ratio = this.remainingMs / this.totalMs;
+      this.totalMs = nextTotal;
+      this.remainingMs = Math.max(0, Math.round(nextTotal * ratio));
       this.endsAt = null;
+      return;
     }
+    this.totalMs = nextTotal;
+    this.remainingMs = this.totalMs;
+    this.endsAt = null;
   }
 
   snapshot(): FocusTimerSnapshot {
