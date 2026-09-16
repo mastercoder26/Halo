@@ -17,6 +17,7 @@ import {
   pickApplications,
   resolveDockApps,
 } from "../services/app-launcher.js";
+import { appIconSizeForPixels, loadAppIconDataUrl } from "../services/app-icon-service.js";
 import {
   nextNowPlaying,
   nowPlayingDialValue,
@@ -280,8 +281,7 @@ export function registerHandlers(): void {
   });
   ipcMain.handle("halo:getFileIconDataUrl", async (_event, filePath: unknown, size: unknown) => {
     if (typeof filePath !== "string" || !filePath.endsWith(".app")) return "";
-    const iconSize = size === 16 ? "small" : size === 32 ? "normal" : "large";
-    return (await app.getFileIcon(filePath, { size: iconSize })).toDataURL();
+    return loadAppIconDataUrl(filePath, appIconSizeForPixels(size));
   });
   ipcMain.handle("halo:zoneMeta", () => ({ corners: CORNER_IDS, edges: EDGE_IDS, roles: ZONE_ROLES }));
 
