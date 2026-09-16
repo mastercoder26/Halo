@@ -19,7 +19,6 @@ export function DockView() {
     try {
       const list = await window.haloAPI.ipc.invoke<DockAppInfo[]>("halo:getDockApps");
       setApps(list);
-      setVisible(true);
     } catch {
       setApps([]);
     }
@@ -96,13 +95,14 @@ export function DockView() {
                 key={app.path}
                 type="button"
                 title={app.name}
+                aria-label={app.name}
                 className={`halo-dock-item no-drag relative flex size-[52px] shrink-0 flex-col items-center justify-end rounded-[16px]${
                   isFocused ? " is-focused" : ""
                 }`}
                 onMouseEnter={() => setFocused(app.path)}
                 onMouseLeave={() => setFocused(null)}
                 onClick={() => void launch(app.path)}
-                disabled={!visible || launchingPath !== null}
+                disabled={!visible || launchingPath === app.path}
                 aria-busy={launchingPath === app.path || undefined}
               >
                 <AppIcon
