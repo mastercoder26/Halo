@@ -77,6 +77,4 @@ jobs:
           body: |
             Latest Apple Silicon build from `main` (`${{ github.sha }}`).
 
-            This build is ad-hoc signed but not Apple-notarized. Right-click Halo and choose **Open** the first time if macOS blocks it.
-
             Tagged releases keep their own assets; this nightly pre-release is overwritten on each push to `main`.
