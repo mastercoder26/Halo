@@ -1,10 +1,12 @@
 # Halo
 
-Halo is a standalone Electron macOS utility for simple cursor-edge system controls.
+Halo is a standalone macOS menu-bar utility that turns screen corners and edges into polished system controls.
 
-On first launch, Halo walks through Accessibility access and its default corner controls. You can rerun setup from the app menu or menu bar at any time.
+Move the pointer into a configured hot zone to control volume, display brightness, appearance, keyboard backlight, mute, keep-awake mode, media playback, a focus timer, or the Quick Dock. Corner controls use Halo's radial dial; edge controls use the compact edge interface.
 
-Use **Now Playing** from the app or menu bar to control playback in Apple Music. You can also assign **Now playing** to any hot zone for quick play/pause.
+On first launch, Halo walks through Accessibility access, tests the available system controls, and introduces the configured hot zones. The walkthrough can be rerun from Settings or the menu-bar menu.
+
+Settings includes per-display hot-zone mapping, Quick Dock app selection, feedback preferences, focus-timer durations, launch-at-login, and import/export. Media controls work with Apple Music and Spotify.
 
 ## Requirements
 
@@ -60,3 +62,4 @@ npm run lint
 - The app runs on its own Electron runtime.
 - Renderer code talks to the main process through `window.haloAPI`, defined in `renderer/preload.ts`.
 - Native macOS access is isolated behind `main/platform/electron.ts`.
+- Halo has its own bundle identifier and does not require a host app or external runtime.
