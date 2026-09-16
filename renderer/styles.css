@@ -1,9 +1,64 @@
 @import "tailwindcss";
 
+/*
+ * Halo's shared renderer styles.
+ */
+
+/* Bundled fonts keep every app window fully offline. */
+@font-face {
+  font-family: "Syne";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./fonts/syne-700.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./fonts/manrope-600.woff2") format("woff2");
+}
+
+/* Tell Tailwind to scan all local renderer window files for class names */
+@source "./**/*.{ts,tsx}";
+@source not "./preload.ts";
+@source not "./dev/**/*";
+
 :root {
-  color-scheme: dark;
+  color-scheme: light dark;
+  --halo-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --halo-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --halo-duration-in: 220ms;
+  --halo-duration-press: 100ms;
+
+  /* Light seeds authored ~2.5× saturated — vibrancy composites at ~40% opacity */
+  --bg: #d4dff5;
+  --bg-secondary: #c4d2ef;
+  --fg: #121216;
+  --theme-accent: #c9940a;
+  --color-text-primary: rgba(18, 18, 22, 0.96);
+  --color-text-secondary: rgba(18, 18, 22, 0.68);
+  --color-text-tertiary: rgba(18, 18, 22, 0.5);
+  --color-border-separator: rgba(18, 18, 22, 0.12);
+  --color-border-secondary: rgba(18, 18, 22, 0.2);
+  --color-control: rgba(18, 18, 22, 0.08);
+  --radius-card: 14px;
+  --radius-control: 9px;
+}
+
+.dark {
+  --bg: #161618;
+  --bg-secondary: #1c1c1f;
+  --fg: #f4f2ec;
   --theme-accent: #fbbf24;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --color-text-primary: rgba(244, 242, 236, 0.96);
+  --color-text-secondary: rgba(244, 242, 236, 0.68);
+  --color-text-tertiary: rgba(244, 242, 236, 0.48);
+  --color-border-separator: rgba(255, 255, 255, 0.1);
+  --color-border-secondary: rgba(255, 255, 255, 0.16);
+  --color-control: rgba(255, 255, 255, 0.08);
 }
 
 html,
@@ -15,30 +70,1262 @@ body,
 }
 
 body {
-  background: #171719;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-family: Manrope, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
 }
 
-html.no-background,
-html.no-background body,
-html.no-background #root {
+.no-background,
+.no-background body,
+.no-background #root {
   background: transparent;
 }
 
+.text-primary { color: var(--color-text-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.bg-well { background: color-mix(in srgb, var(--fg) 5%, transparent); }
+.bg-control { background: var(--color-control); }
+.border-separator { border-color: var(--color-border-separator); }
+.rounded-card { border-radius: var(--radius-card); }
+.rounded-control { border-radius: var(--radius-control); }
+
+.halo-scroll-area {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+
+.halo-button {
+  min-height: 34px;
+  padding: 0 13px;
+  border: 1px solid var(--color-border-secondary);
+  color: var(--color-text-primary);
+  background: var(--color-control);
+  font: inherit;
+}
+
+.halo-button--small { min-height: 30px; padding-inline: 11px; font-size: 12px; }
+.halo-button--transparent { border-color: transparent; background: transparent; }
+.halo-button--filled,
+.halo-button--muted { background: color-mix(in srgb, var(--fg) 8%, transparent); }
+.halo-button--accent { border-color: transparent; background: var(--theme-accent); color: #161618; }
+.halo-button--destructive { border-color: transparent; background: #c83d47; color: white; }
+.halo-button:hover:not(:disabled) { filter: brightness(1.08); }
+.halo-button:active:not(:disabled) { transform: scale(0.98); }
+.halo-button:disabled { opacity: 0.45; }
+
+.halo-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border: 1px solid var(--color-border-secondary);
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.halo-callout {
+  padding: 15px 16px;
+  border: 1px solid var(--color-border-separator);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--fg) 4%, transparent);
+}
+
+.halo-fieldset {
+  overflow: hidden;
+  border: 1px solid var(--color-border-separator);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--fg) 3%, transparent);
+}
+
+.halo-fieldset-title,
+.halo-fieldset-description {
+  margin: 0;
+  padding-inline: 15px;
+}
+.halo-fieldset-title { padding-top: 14px; font-size: 13px; }
+.halo-fieldset-description { padding-top: 12px; color: var(--color-text-secondary); font-size: 12px; }
+.halo-fieldset-content { margin-top: 8px; }
+.halo-field-group > * + *,
+.halo-fieldset-content > .halo-field + .halo-field,
+.halo-fieldset > .halo-field + .halo-field { border-top: 1px solid var(--color-border-separator); }
+
+.halo-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 50px;
+  padding: 10px 14px;
+}
+.halo-field--vertical { align-items: stretch; flex-direction: column; gap: 10px; }
+.halo-field-copy { min-width: 0; flex: 1; }
+.halo-field-label { color: var(--color-text-primary); font-size: 13px; font-weight: 600; }
+.halo-field-description { margin-top: 2px; color: var(--color-text-secondary); font-size: 11px; }
+.halo-field-control { flex: 0 0 auto; }
+.halo-field--vertical .halo-field-control { width: 100%; }
+
+.halo-input,
+.halo-select {
+  min-height: 32px;
+  max-width: 260px;
+  border: 1px solid var(--color-border-secondary);
+  border-radius: var(--radius-control);
+  outline: none;
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--bg-secondary) 72%, transparent);
+  font: inherit;
+  font-size: 12px;
+}
+.halo-input { padding: 5px 9px; }
+.halo-select { padding: 5px 28px 5px 9px; }
+.halo-input:focus,
+.halo-select:focus { border-color: var(--theme-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 20%, transparent); }
+
+.halo-segmented,
+.halo-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--color-border-separator);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+}
+.halo-segmented-item,
+.halo-tab {
+  min-height: 27px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--color-text-secondary);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+}
+.halo-segmented-item.is-active,
+.halo-tab.is-active {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--fg) 12%, transparent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.halo-text { color: var(--color-text-primary); }
+.halo-text--secondary { color: var(--color-text-secondary); }
+.halo-text--tertiary { color: var(--color-text-tertiary); }
+.halo-text--small { font-size: 12px; }
+.halo-text--strong { font-size: 13px; font-weight: 600; }
+
+.halo-slider { display: flex; align-items: center; gap: 12px; width: 100%; }
+.halo-slider input { flex: 1; accent-color: var(--theme-accent); }
+.halo-slider-value { min-width: 42px; color: var(--color-text-secondary); font-size: 12px; text-align: right; }
+
+.halo-toaster {
+  position: fixed;
+  z-index: 1000;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.halo-toast {
+  max-width: 340px;
+  padding: 10px 13px;
+  border: 1px solid var(--color-border-secondary);
+  border-radius: 10px;
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--bg-secondary) 94%, transparent);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.25);
+  font-size: 12px;
+}
+.halo-toast--error { border-color: rgba(220, 70, 82, 0.55); }
+.halo-toast--success { border-color: rgba(56, 178, 112, 0.48); }
+
+/* ——— Settings chrome (editorial / reference-inspired) ——— */
+
+.halo-wordmark {
+  font-family: Syne, "Avenir Next", ui-sans-serif, system-ui, sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.halo-settings-eyebrow {
+  font-family: Manrope, "Avenir Next", ui-sans-serif, system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.halo-kbd {
+  display: inline-block;
+  font-family: Manrope, "Avenir Next", ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.92em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.12em 0.45em;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-secondary, rgba(128, 128, 128, 0.35));
+  background: var(--color-control, rgba(128, 128, 128, 0.12));
+  color: inherit;
+  line-height: 1.3;
+  vertical-align: baseline;
+}
+
+.halo-settings-list > * + * {
+  border-top: 1px solid var(--color-border-separator);
+}
+
+.halo-settings-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 52px;
+  padding-block: 14px;
+}
+
+.halo-settings-list-row--button {
+  width: 100%;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  border-radius: var(--radius-control, 8px);
+  padding-inline: 8px;
+  margin-inline: -8px;
+  transition: background-color 120ms var(--halo-ease-out);
+}
+
+.halo-settings-list-row--button:hover {
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
+}
+
+.halo-settings-list-row--button:focus-visible,
+.halo-zone-map-corner:focus-visible,
+.halo-zone-map-edge:focus-visible {
+  outline: 2px solid var(--theme-accent, #fbbf24);
+  outline-offset: 2px;
+}
+
+.halo-settings-list-row--active {
+  background: color-mix(in srgb, var(--theme-accent, #fbbf24) 14%, transparent);
+}
+
+.halo-settings-list-row--active:hover {
+  background: color-mix(in srgb, var(--theme-accent, #fbbf24) 18%, transparent);
+}
+
+.halo-zone-map {
+  position: relative;
+  display: grid;
+  grid-template:
+    ".      top    ." auto
+    "left   screen right" minmax(120px, 1fr)
+    ".      bottom ." auto
+    / auto minmax(0, 1fr) auto;
+  align-items: center;
+  justify-items: center;
+  gap: 14px 10px;
+  min-height: 220px;
+  padding: 16px 14px;
+  border-radius: var(--radius-card, 12px);
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+  border: 1px solid var(--color-border-separator);
+}
+
+.halo-zone-map-screen {
+  position: relative;
+  grid-area: screen;
+  width: 100%;
+  max-width: 320px;
+  height: 128px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--fg) 4%, transparent);
+  border: 1px solid var(--color-border-separator);
+}
+
+.halo-zone-map-corner {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fg) 88%, transparent);
+  color: var(--bg);
+  font-family: Manrope, ui-sans-serif, system-ui, sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  transition:
+    background-color 120ms var(--halo-ease-out),
+    border-color 120ms var(--halo-ease-out),
+    transform 120ms var(--halo-ease-out);
+}
+
+.halo-zone-map-corner:hover {
+  transform: scale(1.06);
+}
+
+.halo-zone-map-corner[data-selected="true"] {
+  background: var(--theme-accent, #fbbf24);
+  color: #161618;
+  border-color: color-mix(in srgb, var(--theme-accent, #fbbf24) 70%, white);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-accent, #fbbf24) 28%, transparent);
+}
+
+.dark .halo-zone-map-corner {
+  background: color-mix(in srgb, var(--fg) 92%, transparent);
+  color: #161618;
+}
+
+.dark .halo-zone-map-corner[data-selected="true"] {
+  background: var(--theme-accent, #fbbf24);
+  color: #161618;
+}
+
+.halo-zone-map-corner[data-corner="tl"] {
+  top: -12px;
+  left: -12px;
+}
+
+.halo-zone-map-corner[data-corner="tr"] {
+  top: -12px;
+  right: -12px;
+}
+
+.halo-zone-map-corner[data-corner="bl"] {
+  bottom: -12px;
+  left: -12px;
+}
+
+.halo-zone-map-corner[data-corner="br"] {
+  bottom: -12px;
+  right: -12px;
+}
+
+.halo-zone-map-edge {
+  position: static;
+  z-index: 1;
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  font-family: Manrope, ui-sans-serif, system-ui, sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  transition:
+    color 120ms var(--halo-ease-out),
+    background-color 120ms var(--halo-ease-out),
+    border-color 120ms var(--halo-ease-out);
+}
+
+.halo-zone-map-edge:hover {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+}
+
+.halo-zone-map-edge[data-selected="true"] {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--theme-accent, #fbbf24) 18%, transparent);
+  border-color: color-mix(in srgb, var(--theme-accent, #fbbf24) 45%, transparent);
+}
+
+.halo-zone-map-edge[data-edge="top"] {
+  grid-area: top;
+  transform: none;
+}
+
+.halo-zone-map-edge[data-edge="bottom"] {
+  grid-area: bottom;
+  transform: none;
+}
+
+.halo-zone-map-edge[data-edge="left"] {
+  grid-area: left;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  margin-right: -16px;
+}
+
+.halo-zone-map-edge[data-edge="right"] {
+  grid-area: right;
+  transform: rotate(90deg);
+  transform-origin: center;
+  margin-left: -16px;
+}
+
+/* Native window drag affordances for Settings. */
 .drag-region {
   -webkit-app-region: drag;
   app-region: drag;
 }
 
-.no-drag,
-button,
-input,
-select {
+.no-drag {
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }
 
+/* Keep the desktop cursor predictable while making every interactive target obvious. */
+html,
+body,
+#root {
+  cursor: default !important;
+}
+
 button:not(:disabled),
-input:not(:disabled),
-select:not(:disabled) {
-  cursor: pointer;
+[role="button"]:not([aria-disabled="true"]),
+[role="slider"],
+[role="switch"] {
+  cursor: pointer !important;
+}
+
+button:disabled {
+  cursor: not-allowed !important;
+}
+
+[role="slider"].halo-dragging {
+  cursor: grabbing !important;
+}
+
+.halo-control-surface {
+  cursor: pointer !important;
+  transition: filter 120ms var(--halo-ease-out);
+}
+
+.halo-control-surface:hover:not(.halo-dragging) {
+  filter: brightness(1.04);
+}
+
+@keyframes halo-dial-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.015);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.halo-dial-in {
+  animation: halo-dial-in var(--halo-duration-in) var(--halo-ease-out) both;
+}
+
+@keyframes halo-dock-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.halo-dock-in {
+  animation: halo-dock-in var(--halo-duration-in) var(--halo-ease-out) both;
+}
+
+.halo-dock-item {
+  scroll-snap-align: center;
+  transition: transform 160ms var(--halo-ease-out);
+}
+
+.halo-dock-item img {
+  transform: scale(0.82);
+  transition: transform 160ms var(--halo-ease-out);
+}
+
+.halo-dock-item.is-focused {
+  transform: translateY(-8px);
+}
+
+.halo-dock-item.is-focused img {
+  transform: scale(1);
+}
+
+.halo-dock-item:active {
+  transform: translateY(-6px) scale(0.94);
+}
+
+.halo-dock-strip {
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.halo-dock-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.halo-readout {
+  font-variant-numeric: tabular-nums;
+  transition: font-size 120ms var(--halo-ease-out), transform 120ms var(--halo-ease-out);
+}
+
+.halo-scroll-value {
+  display: inline-block;
+  overflow: hidden;
+  height: 1.15em;
+  line-height: 1.15em;
+  vertical-align: bottom;
+  font-variant-numeric: tabular-nums;
+}
+
+.halo-scroll-value-item {
+  display: flex;
+  height: 1.15em;
+  align-items: center;
+  justify-content: center;
+}
+
+.halo-scroll-value-track {
+  display: flex;
+  flex-direction: column;
+}
+
+.halo-scroll-value-track-up {
+  animation: halo-value-roll-up 180ms var(--halo-ease-out) both;
+}
+
+.halo-scroll-value-track-down {
+  animation: halo-value-roll-down 180ms var(--halo-ease-out) both;
+}
+
+@keyframes halo-value-roll-up {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+@keyframes halo-value-roll-down {
+  from {
+    transform: translateY(-50%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.halo-dragging .halo-readout,
+.halo-dragging .halo-scroll-value {
+  letter-spacing: 0.01em;
+  transform: scale(1.05);
+  transform-origin: center;
+}
+
+.halo-value-pill {
+  transition: transform 140ms var(--halo-ease-out), box-shadow 140ms linear;
+}
+
+.halo-dragging .halo-value-pill {
+  transform: scale(1.04);
+}
+
+.halo-tick,
+.halo-thumb {
+  transition: stroke 90ms linear, stroke-width 90ms linear, r 90ms var(--halo-ease-out);
+}
+
+@keyframes halo-edge-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-16px) scaleX(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scaleX(1);
+  }
+}
+
+@keyframes halo-edge-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(16px) scaleX(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scaleX(1);
+  }
+}
+
+@keyframes halo-edge-in-top {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scaleY(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+@keyframes halo-edge-in-bottom {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scaleY(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+.halo-edge-in-left,
+.halo-edge-in-right,
+.halo-edge-in-top,
+.halo-edge-in-bottom {
+  animation-duration: var(--halo-duration-in);
+  animation-timing-function: var(--halo-ease-out);
+  animation-fill-mode: both;
+}
+
+.halo-edge-in-left {
+  animation-name: halo-edge-in-left;
+  transform-origin: left center;
+}
+
+.halo-edge-in-right {
+  animation-name: halo-edge-in-right;
+  transform-origin: right center;
+}
+
+.halo-edge-in-top {
+  animation-name: halo-edge-in-top;
+  transform-origin: top center;
+}
+
+.halo-edge-in-bottom {
+  animation-name: halo-edge-in-bottom;
+  transform-origin: bottom center;
+}
+
+@keyframes halo-settings-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.halo-settings-panel {
+  animation: halo-settings-panel-in 170ms var(--halo-ease-out) both;
+}
+
+@keyframes halo-inline-picker-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.halo-inline-picker {
+  animation: halo-inline-picker-in 170ms var(--halo-ease-out) both;
+  transform-origin: top center;
+}
+
+@keyframes halo-toggle-pulse {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(0.96);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.halo-toggle-pulse {
+  animation: halo-toggle-pulse 220ms var(--halo-ease-out);
+}
+
+.halo-toggle-fill {
+  transition: opacity 180ms var(--halo-ease-out);
+}
+
+.halo-media-btn {
+  transition: transform var(--halo-duration-press) var(--halo-ease-out), opacity 120ms linear, box-shadow 140ms linear;
+}
+
+.halo-media-btn:hover {
+  opacity: 0.94;
+}
+
+.halo-media-btn:active {
+  transform: scale(0.93);
+}
+
+.halo-media-btn:disabled,
+.halo-dock-item:disabled,
+.halo-timer-main:disabled {
+  opacity: 0.5;
+}
+
+.halo-chrome-btn {
+  color: rgba(0, 0, 0, 0.72);
+  transition: transform var(--halo-duration-press) var(--halo-ease-out), filter 120ms linear;
+}
+
+.halo-chrome-btn:active {
+  transform: scale(0.92);
+}
+
+.halo-chrome-btn:disabled {
+  opacity: 0.55;
+}
+
+.halo-chrome-close {
+  background: #ff5f57;
+}
+
+.halo-chrome-minimize {
+  background: #febc2e;
+}
+
+/* Launch splash — icon flash, then wordmark reveal */
+.halo-splash-root {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+.halo-splash-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.halo-splash-plate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 28px;
+  padding: 2px;
+  background: #161618;
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  animation: halo-splash-icon 1400ms var(--halo-ease-out) both;
+}
+
+.halo-splash-icon {
+  display: block;
+  width: 108px;
+  height: 108px;
+  border-radius: 24px;
+  object-fit: cover;
+}
+
+.halo-splash-word {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #f4f4f5;
+  font-family: "SF Pro Rounded", ui-rounded, system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  opacity: 0;
+  animation: halo-splash-word 1400ms var(--halo-ease-out) both;
+}
+
+.halo-splash-word-mark {
+  display: block;
+  width: 28px;
+  height: 3px;
+  border-radius: 999px;
+  background: #fbbf24;
+}
+
+@keyframes halo-splash-icon {
+  0% {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  12% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  22% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  78% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+@keyframes halo-splash-word {
+  0%,
+  22% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  36% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  78% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .halo-dial-in,
+  .halo-dock-in,
+  .halo-edge-in-left,
+  .halo-edge-in-right,
+  .halo-edge-in-top,
+  .halo-edge-in-bottom,
+  .halo-settings-panel,
+  .halo-inline-picker,
+  .halo-toggle-pulse,
+  .halo-splash-icon,
+  .halo-splash-word,
+  .halo-splash-plate {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .halo-toggle-fill,
+  .halo-media-btn,
+  .halo-chrome-btn,
+  .halo-dock-item,
+  .halo-dock-item img,
+  .halo-tick,
+  .halo-thumb,
+  .halo-value-pill,
+  .halo-readout,
+  .halo-scroll-value {
+    transition: none;
+  }
+
+  .halo-scroll-value-track-up,
+  .halo-scroll-value-track-down {
+    animation: none;
+  }
+
+  .halo-meter-fill {
+    transition: none;
+  }
+}
+
+/* Focus timer sliding digits */
+.halo-timer-main {
+  width: 100%;
+  transition: opacity 120ms linear, transform var(--halo-duration-press) var(--halo-ease-out);
+}
+
+.halo-timer-main:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.halo-timer-main:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.halo-timer-digits {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 2px;
+  height: 44px;
+  font-family: "SF Pro Rounded", ui-rounded, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.halo-timer-char {
+  position: relative;
+  overflow: hidden;
+  height: 44px;
+  line-height: 44px;
+  font-size: 40px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+}
+
+.halo-timer-char--digit {
+  width: 26px;
+}
+
+.halo-timer-char--colon {
+  width: 14px;
+  color: rgba(251, 191, 36, 0.7);
+  text-align: center;
+}
+
+.halo-timer-char-slider {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  transition: transform 180ms var(--halo-ease-out);
+  will-change: transform;
+}
+
+.halo-meter-fill {
+  width: 100%;
+  transform-origin: left center;
+  transition: transform 180ms var(--halo-ease-out);
+}
+
+.halo-picker-list {
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.halo-timer-char-slider-option {
+  display: block;
+  height: 44px;
+  line-height: 44px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.halo-timer-char-slider-option.is-active {
+  color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .halo-timer-char-slider {
+    transition: none;
+  }
+}
+
+/* First-launch onboarding coachmarks */
+.halo-onboarding-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  user-select: none;
+}
+
+.halo-onboarding-veil {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
+  pointer-events: none;
+}
+
+.halo-onboarding-hit {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: halo-onboarding-pulse 220ms var(--halo-ease-out) both;
+}
+
+.halo-onboarding-hit.is-corner {
+  border-radius: 12px;
+  background: #fbbf24;
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, #fbbf24 35%, transparent),
+    0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.halo-onboarding-hit.is-edge {
+  background: color-mix(in srgb, #fbbf24 88%, #161618);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, #fbbf24 28%, transparent),
+    0 8px 18px rgba(0, 0, 0, 0.3);
+}
+
+.halo-onboarding-hit.is-map {
+  animation: none;
+}
+
+.halo-onboarding-hit.is-map.is-corner {
+  background: color-mix(in srgb, #fbbf24 80%, #161618);
+}
+
+.halo-onboarding-hit.is-map.is-edge {
+  background: color-mix(in srgb, #fbbf24 68%, #161618);
+}
+
+.halo-onboarding-chip {
+  font-family: Manrope, ui-sans-serif, system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #161618;
+}
+
+.halo-onboarding-hit.is-map .halo-onboarding-chip,
+.halo-onboarding-map-label {
+  border-radius: 999px;
+  padding: 4px 7px;
+  background: #fbbf24;
+  color: #161618;
+  font-family: Manrope, ui-sans-serif, system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.halo-onboarding-card {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: 56px;
+  transform: translateX(-50%);
+  width: min(420px, calc(100% - 48px));
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 16px 36px rgba(0, 0, 0, 0.45);
+  padding: 18px 18px 16px;
+  color: #ffffff;
+  animation: halo-dock-in var(--halo-duration-in) var(--halo-ease-out) both;
+}
+
+.halo-onboarding-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.halo-onboarding-eyebrow {
+  font-family: Manrope, ui-sans-serif, system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.halo-onboarding-step {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(251, 191, 36, 0.9);
+}
+
+.halo-onboarding-copy {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 560;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+.halo-onboarding-instruction {
+  margin: 8px 0 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+  font-weight: 560;
+  line-height: 1.45;
+}
+
+.halo-onboarding-permissions,
+.halo-onboarding-control-lab {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.halo-onboarding-permission-row,
+.halo-onboarding-control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.halo-onboarding-permission-row + .halo-onboarding-permission-row,
+.halo-onboarding-control-row + .halo-onboarding-control-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.halo-onboarding-permission-row > div,
+.halo-onboarding-control-row > div:first-child {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.halo-onboarding-permission-row strong,
+.halo-onboarding-control-row strong {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.halo-onboarding-permission-row span,
+.halo-onboarding-control-row span {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 10px;
+  font-weight: 520;
+}
+
+.halo-onboarding-status {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 4px 7px;
+  background: rgba(251, 191, 36, 0.14);
+  color: #fbbf24 !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.halo-onboarding-inline-btn {
+  flex-shrink: 0;
+  min-height: 28px;
+  border: 1px solid rgba(251, 191, 36, 0.52);
+  border-radius: 8px;
+  padding: 5px 9px;
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.halo-onboarding-inline-btn:disabled {
+  opacity: 0.5;
+}
+
+.halo-onboarding-inline-btn:focus-visible,
+.halo-onboarding-btn:focus-visible {
+  outline: 2px solid #fbbf24;
+  outline-offset: 2px;
+}
+
+.halo-onboarding-control-actions {
+  display: flex;
+  flex: none !important;
+  flex-direction: row !important;
+  gap: 6px !important;
+}
+
+.halo-onboarding-note {
+  margin: 12px 0 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 11px;
+  font-weight: 520;
+  line-height: 1.4;
+}
+
+.halo-onboarding-note.is-error {
+  color: #fca5a5;
+}
+
+.halo-onboarding-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.halo-onboarding-btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  cursor: default;
+}
+
+.halo-onboarding-btn:disabled {
+  opacity: 0.55;
+}
+
+.halo-onboarding-btn--ghost {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.halo-onboarding-btn--ghost:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.halo-onboarding-btn--accent:hover {
+  filter: brightness(1.05);
+}
+
+@keyframes halo-onboarding-pulse {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .halo-onboarding-hit,
+  .halo-onboarding-card {
+    animation: none;
+  }
 }
